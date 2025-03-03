@@ -2,8 +2,21 @@ const axios = require('axios');
 const Trades = require('../models/Trades');
 
 const fetchTrades = async (req, res) => {
+    
     try {
-        const response = await axios.get('http://localhost:5000/api/trading-history');
+        const { start_date, end_date } = req.body; // Extract start_date and end_date from request body
+
+        if (!start_date || !end_date) {
+            return res.status(400).json({ error: 'Start date and end date are required' });
+        }
+
+        // Send start_date and end_date in the request body
+        const response = await axios.get('http://localhost:5000/api/trading-history', { 
+            start_date, 
+            end_date 
+        });
+
+        
         const tradeData = response.data.completed_trades;
 
         if (!tradeData || !Array.isArray(tradeData)) {
@@ -27,7 +40,9 @@ const fetchTrades = async (req, res) => {
                 tp_price: trade.tp_price ? parseFloat(trade.tp_price) : null,
                 type: trade.type,
                 symbol: trade.symbol,
-                volume: trade.volume
+                volume: trade.volume,
+                history_from_date: start_date,
+                history_to_date: end_date
             });
         }
 

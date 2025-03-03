@@ -2,6 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Trades = sequelize.define('Trades', {
+    
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
     position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
     open_date: { type: DataTypes.DATEONLY, allowNull: false },
@@ -18,7 +19,10 @@ const Trades = sequelize.define('Trades', {
     tp_price: { type: DataTypes.FLOAT, allowNull: true },
     type: { type: DataTypes.STRING, allowNull: false },
     symbol: { type: DataTypes.STRING, allowNull: false },
-    volume: { type: DataTypes.FLOAT, allowNull: false }
+    volume: { type: DataTypes.FLOAT, allowNull: false },
+    history_from_date: {type: DataTypes.DATEONLY,allowNull: false},
+    history_to_date: {type: DataTypes.DATEONLY,allowNull: false}
+
 });
 
 module.exports = Trades;
