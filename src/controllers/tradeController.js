@@ -1,5 +1,5 @@
 const axios = require('axios');
-const Trades = require('../models/Trades');
+const {Trades} = require('../models/Trades');
 
 const fetchTrades = async (req, res) => {
     

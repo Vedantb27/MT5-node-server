@@ -1,8 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
-const Trades = sequelize.define('Trades', {
-    
+const Trades = sequelize.define('Trades', {  
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
     position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
     open_date: { type: DataTypes.DATEONLY, allowNull: false },
@@ -22,7 +21,12 @@ const Trades = sequelize.define('Trades', {
     volume: { type: DataTypes.FLOAT, allowNull: false },
     history_from_date: {type: DataTypes.DATEONLY,allowNull: false},
     history_to_date: {type: DataTypes.DATEONLY,allowNull: false}
-
 });
 
-module.exports = Trades;
+const calendarEvents = sequelize.define('calendarEvents',{
+    sr_no: { type: DataTypes.INTEGER, autoIncrement: true ,unique:true},
+    date: {type: DataTypes.DATEONLY, primaryKey:true, unique:true, allowNull:false },
+    notes: { type: DataTypes.STRING, allowNull: false } 
+})
+
+module.exports = {Trades ,calendarEvents};
