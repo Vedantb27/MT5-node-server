@@ -41,3 +41,5 @@ build/
 
 # Docker
 docker-compose.override.yml
+database.js
+
