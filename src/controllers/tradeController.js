@@ -9,6 +9,7 @@ const fetchTrades = async (req, res) => {
         if (!start_date || !end_date) {
             return res.status(400).json({ error: 'Start date and end date are required' });
         }
+        
 
         // Send start_date and end_date in the request body
         const response = await axios.get('http://localhost:5000/api/trading-history', { 

@@ -26,7 +26,8 @@ const Trades = sequelize.define('Trades', {
 const calendarEvents = sequelize.define('calendarEvents',{
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true ,unique:true},
     date: {type: DataTypes.DATEONLY, primaryKey:true, unique:true, allowNull:false },
-    notes: { type: DataTypes.STRING, allowNull: false } 
+    notes: { type: DataTypes.STRING, allowNull: false },
+    color:{ type: DataTypes.STRING, allowNull: false }
 })
 
 module.exports = {Trades ,calendarEvents};
