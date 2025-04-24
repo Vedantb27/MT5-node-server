@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const Users = require('./Users');
 
 const Trades = sequelize.define('Trades', {  
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
@@ -30,4 +31,4 @@ const calendarEvents = sequelize.define('calendarEvents',{
     color:{ type: DataTypes.STRING, allowNull: false }
 })
 
-module.exports = {Trades ,calendarEvents};
+module.exports = { Trades, calendarEvents, Users };

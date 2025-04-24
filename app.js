@@ -1,9 +1,11 @@
 const express = require('express');
+require('dotenv').config();
 const sequelize = require('./src/config/database');
 const tradeRoutes = require('./src/routes/tradeRoutes');
 const cors = require('cors');
 const app = express();
 const PORT = 5000;
+const authRoutes = require('./src/routes/auth');
 
 // Middleware
 app.use(express.json());
@@ -18,6 +20,7 @@ sequelize.sync()
 
 // Routes
 app.use('/api', tradeRoutes);
+app.use('/api/auth', authRoutes);
 
 app.get('/', (req, res) => {
     res.send('Hello server');
