@@ -19,8 +19,8 @@ sequelize.sync()
     .catch(err => console.error('Error syncing database:', err));
 
 // Routes
-app.use('/api', tradeRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', tradeRoutes);
 
 app.get('/', (req, res) => {
     res.send('Hello server');

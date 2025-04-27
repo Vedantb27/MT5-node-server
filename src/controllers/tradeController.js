@@ -60,38 +60,37 @@ const getTradeHistory = async (req, res) => {
         return res.status(500).json({ error: 'Internal server error' });
     }
 };
-
 const mt5Login = async (req, res) => {
     try {
-        const { account, password, server } = req.body;
-
-        if (!account || !password || !server) {
-            return res.status(400).json({ error: 'Account, password, and server are required' });
-        }
-
-        const response = await axios.post('http://localhost:5000/api/mt5-login', {
-            account,
-            password,
-            server
-        });
-
-        const mt5Data = response.data;
-        
-        if (!mt5Data.success) {
-            return res.status(401).json({ error: 'MT5 login failed', details: mt5Data.error });
-        }
-
-        return res.status(200).json({
-            success: true,
-            message: 'MT5 Credentials saved successfully',
-            account_info: mt5Data.account_info
-        });
+      const { account, password, server } = req.body;
+  
+      if (!account || !password || !server) {
+        return { status: 400, error: 'Account, password, and server are required' };
+      }
+  
+      const response = await axios.post('http://localhost:5000/api/mt5-login', {
+        account,
+        password,
+        server,
+      });
+  
+      const mt5Data = response.data;
+  
+      if (!mt5Data.success) {
+        return { status: 400, error: 'MT5 login failed', details: mt5Data.error };
+      }
+  
+      return {
+        status: 200,
+        success: true,
+        message: 'MT5 login successful',
+        account_info: mt5Data.account_info,
+      };
     } catch (err) {
-        console.error('Error saving MT5 credentials:', err);
-        return res.status(500).json({ error: 'Internal server error' });
+      console.error('Error during MT5 login:', err);
+      return { status: 500, error: 'Internal server error' };
     }
-};
-
+  };
 module.exports = {
     fetchTrades,
     getTradeHistory,
