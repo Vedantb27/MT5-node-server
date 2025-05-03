@@ -5,8 +5,8 @@ const Users = require('./Users');
 
 const MT5Accounts = sequelize.define('MT5Accounts', {
   id: {
-    type: DataTypes.UUID,
-    defaultValue: DataTypes.UUIDV4,
+    type: DataTypes.INTEGER,
+    autoIncrement: true,
     primaryKey: true,
   },
   userId: {
@@ -48,6 +48,6 @@ const MT5Accounts = sequelize.define('MT5Accounts', {
 });
 
 // Define associations
-MT5Accounts.belongsTo(Users, { foreignKey: 'userId' }); // Corrected foreign key
+MT5Accounts.belongsTo(Users, { foreignKey: 'userId' });
 
 module.exports = MT5Accounts;

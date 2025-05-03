@@ -1,14 +1,14 @@
 const axios = require('axios');
-const { MT5Accounts } = require('../models/MT5Accounts');
+const { MT5Accounts } = require('../models/Trades');
 const mt5Login = require('./tradeController').mt5Login; // Import mt5Login from tradeController
 
 // Fetch all MT5 accounts for the authenticated user
-const getMT5Accounts = async (req, res) => {
+const getMT5Accounts = async (req, res) => {  
   try {
     const userId = req.user.id; // From authMiddleware
     const accounts = await MT5Accounts?.findAll({
       where: { userId },
-      attributes: ['id', 'accountNumber', 'server', 'platform', 'createdAt'], // Exclude password
+      attributes: [ 'accountNumber', 'server', 'platform', 'createdAt'],
     });
     return res.status(200).json(accounts);
   } catch (err) {

@@ -3,8 +3,9 @@ const sequelize = require('../config/database');
 const Users = require('./Users');
 const MT5Accounts = require('./MT5Accounts');
 
-const Trades = sequelize.define('Trades', {  
+const Trades = sequelize.define('Trades', {
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
+    mt5_account_number: { type: DataTypes.STRING, allowNull: false },
     position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
     open_date: { type: DataTypes.DATEONLY, allowNull: false },
     open_time: { type: DataTypes.TIME, allowNull: false },
