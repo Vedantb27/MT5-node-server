@@ -4,7 +4,7 @@ const sequelize = require('./src/config/database');
 const tradeRoutes = require('./src/routes/tradeRoutes');
 const cors = require('cors');
 const app = express();
-const PORT = 5000;
+const PORT = 8000;
 const authRoutes = require('./src/routes/auth');
 
 // Middleware
