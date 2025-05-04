@@ -44,13 +44,15 @@ const addMT5Account = async (req, res) => {
     const newAccount = await MT5Accounts.create({
       userId,
       accountNumber,
-      password, // Store securely (consider encryption in production)
+      password, 
       server,
       platform:'MT5',
     });
 
     // Return the created account (excluding password)
     return res.status(201).json({
+      status:201,
+      message:"MT5 Account added successfully",
       id: newAccount.id,
       accountNumber: newAccount.accountNumber,
       server: newAccount.server,

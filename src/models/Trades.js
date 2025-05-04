@@ -22,15 +22,25 @@ const Trades = sequelize.define('Trades', {
     type: { type: DataTypes.STRING, allowNull: false },
     symbol: { type: DataTypes.STRING, allowNull: false },
     volume: { type: DataTypes.FLOAT, allowNull: false },
-    history_from_date: {type: DataTypes.DATEONLY,allowNull: false},
-    history_to_date: {type: DataTypes.DATEONLY,allowNull: false}
+    history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
+    history_to_date: { type: DataTypes.DATEONLY, allowNull: false }
 });
 
-const calendarEvents = sequelize.define('calendarEvents',{
-    sr_no: { type: DataTypes.INTEGER, autoIncrement: true ,unique:true},
-    date: {type: DataTypes.DATEONLY, primaryKey:true, unique:true, allowNull:false },
+const calendarEvents = sequelize.define('calendarEvents', {
+    sr_no: { type: DataTypes.INTEGER, autoIncrement: true, unique: true },
+    userId: {
+        type: DataTypes.INTEGER,
+        allowNull: false,
+        references: {
+            model: Users,
+            key: 'id',
+        },
+    },
+    mt5_account_number: { type: DataTypes.STRING, allowNull: false },
+    date: { type: DataTypes.DATEONLY, primaryKey: true, unique: true, allowNull: false },
     notes: { type: DataTypes.STRING, allowNull: false },
-    color:{ type: DataTypes.STRING, allowNull: false }
+    color: { type: DataTypes.STRING, allowNull: false }
 })
+
 
 module.exports = { Trades, calendarEvents, Users, MT5Accounts };

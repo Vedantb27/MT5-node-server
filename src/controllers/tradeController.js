@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { Trades } = require('../models/Trades');
+const { Trades, MT5Accounts } = require('../models/Trades');
 const sequelize = require('../config/database');
 const { DataTypes } = require('sequelize');
 
@@ -53,19 +53,24 @@ const fetchTrades = async (req, res) => {
   }
 };
 
+
 const getTradeHistory = async (req, res) => {
   try {
     const userid = req.user?.id;
     const { mt5AccountNumber: mt5accountnumber } = req.query;
 
-    if ( !mt5accountnumber) {
-      return res.status(400).json({ error: 'Mt5 account number is required' });
+    if (!mt5accountnumber) {
+      return res.status(400).json({ error: 'MT5 account number is required' });
     }
 
-    const userMt5Accounts = req.user?.mt5Accounts || [];
-    const isValidAccount = userMt5Accounts.includes(mt5accountnumber);
+    const mt5Account = await MT5Accounts.findOne({
+      where: {
+        userId: userid,
+        accountNumber: mt5accountnumber,
+      },
+    });
 
-    if (!isValidAccount) {
+    if (!mt5Account) {
       return res.status(403).json({ error: 'Invalid MT5 account number for this user' });
     }
 
@@ -91,16 +96,16 @@ const getTradeHistory = async (req, res) => {
       symbol: { type: DataTypes.STRING, allowNull: false },
       volume: { type: DataTypes.FLOAT, allowNull: false },
       history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
-      history_to_date: { type: DataTypes.DATEONLY, allowNull: false }
+      history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
     }, {
       tableName,
-      timestamps: false
+      timestamps: false,
     });
 
     const trades = await DynamicTrades.findAll({
       where: {
-        mt5_account_number: mt5accountnumber
-      }
+        mt5_account_number: mt5accountnumber,
+      },
     });
 
     return res.status(200).json(trades);
