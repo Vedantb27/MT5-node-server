@@ -9,6 +9,10 @@ const addNotes = async (req, res) => {
             return res.status(400).json({ error: 'Date, notes, color, MT5 account number, and user authentication are required' });
         }
 
+        if (notes.length > 100) {
+            return res.status(400).json({ error: 'Notes must be 100 characters or fewer' });
+        }
+
         const mt5Account = await MT5Accounts.findOne({
             where: {
                 userId,
