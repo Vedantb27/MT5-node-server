@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  mt5-node-server:
+    image: mt5:latest
+    env_file:
+      - D:/FX/dockerfiles/node-docker_file/MT5-node-server/.env
+    ports:
+      - "8000:8000"
+    container_name: mt5-node-server
