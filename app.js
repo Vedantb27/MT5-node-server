@@ -30,8 +30,12 @@ if (cluster.isMaster) {
     // Middleware
     app.use(express.json());
 
-    // CORS
-    app.use(cors());
+    
+    app.use(cors({
+        origin: 'https://fx-dashboard-nextjs.vercel.app',
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization']
+    }));
 
     // Sync database (only once, in master or single worker)
     if (cluster.worker.id === 1) {
