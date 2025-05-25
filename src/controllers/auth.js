@@ -53,7 +53,7 @@ const admin = require('firebase-admin');
 // Initialize Firebase Admin SDK
 if (!admin.apps.length) {
   admin.initializeApp({
-    credential: admin.credential.cert(require('./authdummy-819cf-firebase-adminsdk-fbsvc-4521c92b8e.json')),
+    credential: admin.credential.cert(require('./tradeauth-81fcd-firebase-adminsdk-fbsvc-f823921d87.json')),
   });
 }
 
