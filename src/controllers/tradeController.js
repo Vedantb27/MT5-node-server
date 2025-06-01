@@ -12,7 +12,7 @@ const fetchTrades = async (req, res) => {
     }
 
 
-    const response = await axios.get('http://localhost:5000/api/trading-history', {
+    const response = await axios.get(`${process.env.MT5_URL}/trading-history`, {
       params: { start_date, end_date }
     });
 
@@ -124,7 +124,7 @@ const mt5Login = async (req, res) => {
       return { status: 400, error: 'Account, password, and server are required' };
     }
 
-    const response = await axios.post('http://localhost:5000/api/mt5-login', {
+    const response = await axios.post(`${process.env.MT5_URL}/mt5-login`, {
       account,
       password,
       server,
