@@ -1,11 +1,11 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const Users = require('./Users');
-const MT5Accounts = require('./MT5Accounts');
+const Accounts = require('./Accounts');
 
 const Trades = sequelize.define('Trades', {
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
-    mt5_account_number: { type: DataTypes.STRING, allowNull: false },
+    accountNumber: { type: DataTypes.STRING, allowNull: false },
     position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
     open_date: { type: DataTypes.DATEONLY, allowNull: false },
     open_time: { type: DataTypes.TIME, allowNull: false },
@@ -36,11 +36,11 @@ const calendarEvents = sequelize.define('calendarEvents', {
             key: 'id',
         },
     },
-    mt5_account_number: { type: DataTypes.STRING, allowNull: false },
+    accountNumber: { type: DataTypes.STRING, allowNull: false },
     date: { type: DataTypes.DATEONLY, primaryKey: true, unique: true, allowNull: false },
     notes: { type: DataTypes.STRING, allowNull: false },
     color: { type: DataTypes.STRING, allowNull: false }
 })
 
 
-module.exports = { Trades, calendarEvents, Users, MT5Accounts };
+module.exports = { Trades, calendarEvents, Users, Accounts };

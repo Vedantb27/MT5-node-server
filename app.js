@@ -30,9 +30,9 @@ if (cluster.isMaster) {
     // Middleware
     app.use(express.json());
 
-    
+
     app.use(cors({
-        origin: 'https://fx-dashboard-nextjs.vercel.app',
+        origin: '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization']
     }));

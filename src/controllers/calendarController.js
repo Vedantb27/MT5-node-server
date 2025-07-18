@@ -1,41 +1,41 @@
-const { calendarEvents, MT5Accounts } = require('../models/Trades');
+const { calendarEvents, Accounts } = require('../models/Trades');
 
 const addNotes = async (req, res) => {
     try {
-        const { date, notes, color, mt5AccountNumber } = req.body;
+        const { date, notes, color, accountNumber } = req.body;
         const userId = req.user?.id;
 
-        if (!date || !notes || !color || !mt5AccountNumber || !userId) {
-            return res.status(400).json({ error: 'Date, notes, color, MT5 account number, and user authentication are required' });
+        if (!date || !notes || !color || !accountNumber || !userId) {
+            return res.status(400).json({ error: 'Date, notes, color, account number, and user authentication are required' });
         }
 
         if (notes.length > 100) {
             return res.status(400).json({ error: 'Notes must be 100 characters or fewer' });
         }
 
-        const mt5Account = await MT5Accounts.findOne({
+        const Account = await Accounts.findOne({
             where: {
                 userId,
-                accountNumber: mt5AccountNumber,
+                accountNumber: accountNumber,
             },
         });
 
-        if (!mt5Account) {
-            return res.status(403).json({ error: 'Invalid MT5 account number for this user' });
+        if (!Account) {
+            return res.status(403).json({ error: 'Invalid Account number for this user' });
         }
 
         const existingNotes = await calendarEvents.findOne({
             where: {
                 date,
                 userId,
-                mt5_account_number: mt5AccountNumber
+                accountNumber: accountNumber
             }
         });
 
         if (existingNotes) {
             await calendarEvents.update(
                 { notes, color },
-                { where: { date, userId, mt5_account_number: mt5AccountNumber } }
+                { where: { date, userId, accountNumber: accountNumber } }
             );
 
             res.status(200).json({ message: 'Event updated successfully' });
@@ -45,7 +45,7 @@ const addNotes = async (req, res) => {
                 notes,
                 color,
                 userId,
-                mt5_account_number: mt5AccountNumber
+                accountNumber: accountNumber
             });
 
             res.status(200).json({ message: 'Event added successfully' });
@@ -66,29 +66,29 @@ const addNotes = async (req, res) => {
 
 const deleteNotes = async (req, res) => {
     try {
-        const { date, mt5AccountNumber } = req.body;
+        const { date, accountNumber } = req.body;
         const userId = req.user?.id;
 
-        if (!date || !mt5AccountNumber || !userId) {
-            return res.status(400).json({ error: 'Date, MT5 account number, and user authentication are required' });
+        if (!date || !accountNumber || !userId) {
+            return res.status(400).json({ error: 'Date, account number, and user authentication are required' });
         }
 
-        const mt5Account = await MT5Accounts.findOne({
+        const Account = await Accounts.findOne({
             where: {
                 userId,
-                accountNumber: mt5AccountNumber,
+                accountNumber: accountNumber,
             },
         });
 
-        if (!mt5Account) {
-            return res.status(403).json({ error: 'Invalid MT5 account number for this user' });
+        if (!Account) {
+            return res.status(403).json({ error: 'Invalid account number for this user' });
         }
 
         const deletedCount = await calendarEvents.destroy({
             where: {
                 date,
                 userId,
-                mt5_account_number: mt5AccountNumber
+                accountNumber: accountNumber
             }
         });
 
@@ -110,28 +110,28 @@ const deleteNotes = async (req, res) => {
 
 const getNotes = async (req, res) => {
     try {
-        const { mt5AccountNumber } = req.query;
+        const { accountNumber } = req.query;
         const userId = req.user?.id;
 
-        if (!mt5AccountNumber || !userId) {
-            return res.status(400).json({ error: 'MT5 account number and user authentication are required' });
+        if (!accountNumber || !userId) {
+            return res.status(400).json({ error: 'Account number and user authentication are required' });
         }
 
-        const mt5Account = await MT5Accounts.findOne({
+        const Account = await Accounts.findOne({
             where: {
                 userId,
-                accountNumber: mt5AccountNumber,
+                accountNumber: accountNumber,
             },
         });
 
-        if (!mt5Account) {
-            return res.status(403).json({ error: 'Invalid MT5 account number for this user' });
+        if (!Account) {
+            return res.status(403).json({ error: 'Invalid account number for this user' });
         }
 
         const notes = await calendarEvents.findAll({
             where: {
                 userId,
-                mt5_account_number: mt5AccountNumber
+                accountNumber: accountNumber
             },
             attributes: ['date', 'notes', 'color']
         });

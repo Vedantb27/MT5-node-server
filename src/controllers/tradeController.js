@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { Trades, MT5Accounts } = require('../models/Trades');
+const { Trades, Accounts } = require('../models/Trades');
 const sequelize = require('../config/database');
 const { DataTypes } = require('sequelize');
 
@@ -22,9 +22,10 @@ const fetchTrades = async (req, res) => {
       return res.status(400).json({ error: 'Invalid trade data received' });
     }
 
-    // Use Promise.all for parallel processing of trades
+  
     await Promise.all(tradeData.map(trade =>
       Trades.create({
+        accountNumber: { type: DataTypes.STRING, allowNull: false },
         position_id: trade.position_id,
         open_date: trade.opening_date,
         open_time: trade.opening_time,
@@ -57,28 +58,28 @@ const fetchTrades = async (req, res) => {
 const getTradeHistory = async (req, res) => {
   try {
     const userid = req.user?.id;
-    const { mt5AccountNumber: mt5accountnumber } = req.query;
+    const { accountNumber: accountNumber } = req.query;
 
-    if (!mt5accountnumber) {
-      return res.status(400).json({ error: 'MT5 account number is required' });
+    if (!accountNumber) {
+      return res.status(400).json({ error: 'Account number is required' });
     }
 
-    const mt5Account = await MT5Accounts.findOne({
+    const Account = await Accounts.findOne({
       where: {
         userId: userid,
-        accountNumber: mt5accountnumber,
+        accountNumber: accountNumber,
       },
     });
 
-    if (!mt5Account) {
-      return res.status(403).json({ error: 'Invalid MT5 account number for this user' });
+    if (!Account) {
+      return res.status(403).json({ error: 'Invalid Account number for this user' });
     }
 
     const tableName = `${userid}_trades`;
 
     const DynamicTrades = sequelize.define(tableName, {
       sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
-      mt5_account_number: { type: DataTypes.STRING, allowNull: false },
+      accountNumber: { type: DataTypes.STRING, allowNull: false },
       position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
       open_date: { type: DataTypes.DATEONLY, allowNull: false },
       open_time: { type: DataTypes.TIME, allowNull: false },
@@ -104,7 +105,7 @@ const getTradeHistory = async (req, res) => {
 
     const trades = await DynamicTrades.findAll({
       where: {
-        mt5_account_number: mt5accountnumber,
+        accountNumber: accountNumber,
       },
     });
 

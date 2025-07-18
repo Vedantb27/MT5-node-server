@@ -26,7 +26,7 @@ const Users = sequelize.define('Users',{
     }
 })
 
-const MT5credentials = sequelize.define('MT5credentials',{
+const AccountCredentials = sequelize.define('AccountCredentials',{
     sr_no:{
         type:DataTypes.INTEGER,
         allowNull:false,
@@ -49,4 +49,4 @@ const MT5credentials = sequelize.define('MT5credentials',{
 })
 
 
-module.exports ={Users, MT5credentials}
+module.exports ={Users, AccountCredentials}

@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken');
 const { Users } = require('../models/Trades');
 const { OAuth2Client } = require('google-auth-library');
 const axios = require('axios');
-const MT5Accounts = require('../models/MT5Accounts');
+const Accounts = require('../models/Accounts');
 
 const signup = async (req, res) => {
   try {
@@ -109,18 +109,18 @@ const login = async (req, res) => {
         return res.status(401).json({ error: 'Invalid email or password' });
       }
     }
-    // Fetch MT5 account numbers for the user
-    const mt5Accounts = await MT5Accounts.findAll({
+   
+    const Accounts = await Accounts.findAll({
       where: { userId: user.id },
       attributes: ['accountNumber']
     });
     // Extract account numbers into an array
-    const mt5AccountNumbers = mt5Accounts?.map(account => account.accountNumber);
+    const AccountNumbers = Accounts?.map(account => account.accountNumber);
     const token = jwt.sign(
       { 
         id: user.id, 
         email: user.email,
-        mt5Accounts: mt5AccountNumbers
+        Accounts: AccountNumbers
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }

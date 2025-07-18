@@ -1,9 +1,9 @@
-// models/MT5Accounts.js
+// models/Accounts.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 const Users = require('./Users');
 
-const MT5Accounts = sequelize.define('MT5Accounts', {
+const Accounts = sequelize.define('Accounts', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -24,16 +24,20 @@ const MT5Accounts = sequelize.define('MT5Accounts', {
   },
   password: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   server: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   platform: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'MT5',
+    
+  },
+  oauthToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,
@@ -48,6 +52,6 @@ const MT5Accounts = sequelize.define('MT5Accounts', {
 });
 
 // Define associations
-MT5Accounts.belongsTo(Users, { foreignKey: 'userId' });
+Accounts.belongsTo(Users, { foreignKey: 'userId' });
 
-module.exports = MT5Accounts;
+module.exports = Accounts;
