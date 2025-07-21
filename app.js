@@ -6,9 +6,11 @@ const cors = require('cors');
 const authRoutes = require('./src/routes/auth');
 const os = require('os');
 const cluster = require('cluster');
+const historyRoutes = require('./src/controllers/ChistoryController');
+const loginRoutes = require('./src/controllers/CauthController')
 
 const totalCpus = os.cpus().length;
-const PORT = 8000;
+const PORT = 3000;
 
 if (cluster.isMaster) {
     console.log(`Master process ${process.pid} is running`);
@@ -47,6 +49,8 @@ if (cluster.isMaster) {
     // Routes
     app.use('/api/auth', authRoutes);
     app.use('/api', tradeRoutes);
+    app.use('/api2', historyRoutes);
+    app.use('/api2', loginRoutes.router);
 
     app.get('/', (req, res) => {
         res.send(`Hello from worker ${process.pid}`);
