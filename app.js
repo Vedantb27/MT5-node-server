@@ -10,7 +10,7 @@ const historyRoutes = require('./src/controllers/ChistoryController');
 const loginRoutes = require('./src/controllers/CauthController')
 
 const totalCpus = os.cpus().length;
-const PORT = 3000;
+const PORT = 8000;
 
 if (cluster.isMaster) {
     console.log(`Master process ${process.pid} is running`);
