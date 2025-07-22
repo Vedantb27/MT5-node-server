@@ -110,17 +110,11 @@ const login = async (req, res) => {
       }
     }
    
-    const accounts = await Accounts.findAll({
-      where: { userId: user.id },
-      attributes: ['accountNumber']
-    });
-    // Extract account numbers into an array
-    const AccountNumbers = accounts?.map(account => account.accountNumber);
+ 
     const token = jwt.sign(
       { 
         id: user.id, 
-        email: user.email,
-        Accounts: AccountNumbers
+        email: user.email
       },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
