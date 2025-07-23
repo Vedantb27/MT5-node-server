@@ -27,11 +27,6 @@ async function fetchOrderHistory(accountId, from = DEFAULT_FROM, to = DEFAULT_TO
   };
 
   const res = await axios.post(`${BASE_URL}/order-history`, payload);
-  console.log('Start logs from \n')
-  console.log('Full response:', JSON.stringify(res.data, null, 2));
-  console.log('res.data.order type', typeof res.data);
-  console.log('Is Array', Array.isArray(res.data.order));
-  console.log('Fetched orders:',res.data.order);
   return res.data.order || [];
 }
 
@@ -50,13 +45,13 @@ async function fetchOrdersByPosition(accountId, positionId, from = DEFAULT_FROM,
 async function fetchSymbolMap(accountId){
   const res = await axios.post(`${BASE_URL}/SymbolsListReq`, { ctidTraderAccountId: accountId });
   
-  const symbols = res.data.symbols || [];
-  
+  const symbols = res.data.symbol || [];
+ 
   const symbolMap= {};
   symbols.forEach(sym => {
     symbolMap[parseInt(sym.symbolId)] = sym.symbolName;
   });
-
+  console.log('symbolMap', symbolMap)
   return symbolMap;
 }
 
