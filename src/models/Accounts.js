@@ -22,6 +22,11 @@ const Accounts = sequelize.define('Accounts', {
     allowNull: false,
     unique: true,
   },
+  accountId: {
+    type: DataTypes.BIGINT,
+    allowNull: false,
+    unique: true,
+  },
   password: {
     type: DataTypes.STRING,
     allowNull: true,
@@ -30,14 +35,78 @@ const Accounts = sequelize.define('Accounts', {
     type: DataTypes.STRING,
     allowNull: true,
   },
+  live: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false
+  },
+  brokerName: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  brokerTitle: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  depositCurrency: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  traderRegistrationTimestamp: {
+    type: DataTypes.BIGINT,
+    allowNull: false,
+  },
+  traderAccountType: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  leverage: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  leverageInCents: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
   platform: {
     type: DataTypes.STRING,
     allowNull: false,
-    
   },
-  oauthToken: {
+  balance: {
+    type: DataTypes.DOUBLE,
+    allowNull: false,
+  },
+  deleted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+  },
+  accountStatus: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
+  swapFree: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+  },
+  moneyDigits: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+  },
+  accessToken: {
     type: DataTypes.TEXT,
     allowNull: true,
+  },
+  refreshToken: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+  expiresIn: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+  },
+  lastRefreshedOn: {
+    type: DataTypes.DATE,
+    allowNull: true,
+    defaultValue: DataTypes.NOW,
   },
   createdAt: {
     type: DataTypes.DATE,

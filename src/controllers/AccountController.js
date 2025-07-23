@@ -1,5 +1,6 @@
 const axios = require('axios');
 const { Accounts } = require('../models/Trades');
+const FetchedCtraderAccounts = require('../models/FetchedCtraderAccounts');
 const mt5Login = require('./tradeController').mt5Login; 
 
 
@@ -19,9 +20,11 @@ const getAccounts = async (req, res) => {
 
 
 const addAccount = async (req, res) => {
+  const axios = require('axios');
   try {
     const userId = req.user.id;
-    const { accountNumber, password, server, platform, oauthToken } = req.body;
+    const { accountNumber, password, server, platform, code } = req.body;
+    console.log(req.body, "req.body");
 
     // Validate platform
     if (!['MT5', 'cTrader'].includes(platform)) {
@@ -43,28 +46,133 @@ const addAccount = async (req, res) => {
         return res.status(400).json({ error: 'Invalid MT5 credentials', details: loginResponse.error });
       }
     } else if (platform === 'cTrader') {
-      if (!oauthToken) {
-        return res.status(400).json({ error: 'OAuth token is required for cTrader' });
+      if (!code) {
+        return res.status(400).json({ error: 'Code is required for cTrader' });
       }
-      // Use the provided accountNumber for cTrader or maintain as is
       if (!accountNumber) {
         return res.status(400).json({ error: 'Account number is required for cTrader' });
       }
+
+      // Get access token from cTrader
+      const tokenResponse = await axios.post('https://openapi.ctrader.com/apps/token', {
+        grant_type: 'authorization_code',
+        code,
+        redirect_uri: process.env.REDIRECT_URI,
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET
+      }, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const { accessToken, expiresIn, refreshToken } = tokenResponse.data;
+
+      // Get trading accounts
+      const accountsResponse = await axios.get(`https://api.spotware.com/connect/tradingaccounts?access_token=${accessToken}`);
+      const tradingAccounts = accountsResponse.data.data;
+
+      // Store accounts in FetchedCtraderAccounts
+      for (const account of tradingAccounts) {
+        const existingFetchedAccount = await FetchedCtraderAccounts.findOne({ 
+          where: { accountNumber: account.accountNumber, userId }
+        });
+
+        if (!existingFetchedAccount) {
+          await FetchedCtraderAccounts.create({
+            userId,
+            accountId: account.accountId,
+            accountNumber: account.accountNumber,
+            live: account.live,
+            brokerName: account.brokerName,
+            brokerTitle: account.brokerTitle,
+            depositCurrency: account.depositCurrency,
+            traderRegistrationTimestamp: account.traderRegistrationTimestamp,
+            traderAccountType: account.traderAccountType,
+            leverage: account.leverage,
+            leverageInCents: account.leverageInCents,
+            balance: account.balance,
+            deleted: account.deleted,
+            accountStatus: account.accountStatus,
+            swapFree: account.swapFree,
+            moneyDigits: account.moneyDigits,
+            accessToken,
+            refreshToken,
+            expiresIn,
+            lastRefreshedOn: new Date()
+          });
+        }
+      }
+
+      // Check if more than one account
+      if (tradingAccounts.length > 1) {
+        return res.status(400).json({ 
+          message: 'Your current plan only supports one account' 
+        });
+      }
+
+      // For single account, proceed to save in Accounts table
+      const selectedAccount = tradingAccounts[0];
+
+      // Check if account already exists for the user
+      const existingAccount = await Accounts.findOne({ 
+        where: { accountNumber: selectedAccount.accountNumber, userId }
+      });
+      
+      if (existingAccount) {
+        return res.status(400).json({ error: 'Account number already exists for this user' });
+      }
+
+      // Create new account in Accounts table
+      const newAccount = await Accounts.create({
+        userId,
+        accountNumber: selectedAccount.accountNumber,
+        accountId: selectedAccount.accountId,
+        live: selectedAccount.live,
+        brokerName: selectedAccount.brokerName,
+        brokerTitle: selectedAccount.brokerTitle,
+        depositCurrency: selectedAccount.depositCurrency,
+        traderRegistrationTimestamp: selectedAccount.traderRegistrationTimestamp,
+        traderAccountType: selectedAccount.traderAccountType,
+        leverage: selectedAccount.leverage,
+        leverageInCents: selectedAccount.leverageInCents,
+        balance: selectedAccount.balance,
+        deleted: selectedAccount.deleted,
+        accountStatus: selectedAccount.accountStatus,
+        swapFree: selectedAccount.swapFree,
+        moneyDigits: selectedAccount.moneyDigits,
+        accessToken,
+        refreshToken,
+        expiresIn,
+        lastRefreshedOn: new Date(),
+        platform
+      });
+
+      // Return the created account
+      return res.status(201).json({
+        status: 201,
+        message: `${platform} Account added successfully`,
+        id: newAccount.id,
+        accountNumber: newAccount.accountNumber,
+        platform: newAccount.platform,
+        createdAt: newAccount.createdAt
+      });
     }
 
-    // Check if account already exists for the user
+    // Check if account already exists for the user (for MT5)
     const existingAccount = await Accounts.findOne({ where: { accountNumber, userId } });
     if (existingAccount) {
       return res.status(400).json({ error: 'Account number already exists for this user' });
     }
 
-    // Create new account
+    // Create new account (for MT5)
     const newAccount = await Accounts.create({
       userId,
       accountNumber,
-      ...(platform === 'MT5' && { password, server }),
-      ...(platform === 'cTrader' && { oauthToken }),
-      platform,
+      password,
+      server,
+      platform
     });
 
     // Return the created account
@@ -73,13 +181,11 @@ const addAccount = async (req, res) => {
       message: `${platform} Account added successfully`,
       id: newAccount.id,
       accountNumber: newAccount.accountNumber,
-      ...(platform === 'MT5' && { server: newAccount.server }),
       platform: newAccount.platform,
-      createdAt: newAccount.createdAt,
-      ...(platform === 'cTrader' && { oauthToken: newAccount.oauthToken }),
+      createdAt: newAccount.createdAt
     });
   } catch (err) {
-    console.error(`Error adding ${platform} account:`, err);
+    console.error(`Error adding account:`, err);
     return res.status(500).json({ error: 'Internal server error' });
   }
 };
