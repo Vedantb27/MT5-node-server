@@ -24,7 +24,6 @@ const addAccount = async (req, res) => {
   try {
     const userId = req.user.id;
     const { accountNumber, password, server, platform, code } = req.body;
-    console.log(req.body, "req.body");
 
     // Validate platform
     if (!['MT5', 'cTrader'].includes(platform)) {
