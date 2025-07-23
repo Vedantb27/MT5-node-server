@@ -45,6 +45,7 @@ function formatHistory(deals, orders, symbolMap = {}) {
       : 0;
 
     return {
+      'position id': posId,
       'Open Date': msToDate(openTimestamp),
       'Close Date': msToDate(closeTimestamp),
       'Symbol': symbol,
