@@ -18,9 +18,8 @@ const Accounts = sequelize.define('Accounts', {
     },
   },
   accountNumber: {
-    type: DataTypes.STRING,
+    type: DataTypes.BIGINT,
     allowNull: false,
-    unique: true,
   },
   accountId: {
     type: DataTypes.BIGINT,

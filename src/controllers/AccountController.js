@@ -1,15 +1,18 @@
 const axios = require('axios');
 const { Accounts } = require('../models/Trades');
 const FetchedCtraderAccounts = require('../models/FetchedCtraderAccounts');
-const mt5Login = require('./tradeController').mt5Login; 
+const mt5Login = require('./tradeController').mt5Login;
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
 
 
-const getAccounts = async (req, res) => {  
+
+const getAccounts = async (req, res) => {
   try {
-    const userId = req.user.id; 
+    const userId = req.user.id;
     const accounts = await Accounts?.findAll({
       where: { userId },
-      attributes: [ 'accountNumber', 'server', 'platform', 'createdAt'],
+      attributes: ['accountNumber', 'server', 'platform', 'createdAt'],
     });
     return res.status(200).json(accounts);
   } catch (err) {
@@ -37,10 +40,10 @@ const addAccount = async (req, res) => {
       }
 
       // Validate MT5 credentials
-      const loginResponse = await mt5Login({ 
-        body: { account: accountNumber, password, server } 
-      }, { status: () => ({ json: () => {} }) });
-      
+      const loginResponse = await mt5Login({
+        body: { account: accountNumber, password, server }
+      }, { status: () => ({ json: () => { } }) });
+
       if (loginResponse.status !== 200) {
         return res.status(400).json({ error: 'Invalid MT5 credentials', details: loginResponse.error });
       }
@@ -74,7 +77,7 @@ const addAccount = async (req, res) => {
 
       // Store accounts in FetchedCtraderAccounts
       for (const account of tradingAccounts) {
-        const existingFetchedAccount = await FetchedCtraderAccounts.findOne({ 
+        const existingFetchedAccount = await FetchedCtraderAccounts.findOne({
           where: { accountNumber: account.accountNumber, userId }
         });
 
@@ -106,8 +109,8 @@ const addAccount = async (req, res) => {
 
       // Check if more than one account
       if (tradingAccounts.length > 1) {
-        return res.status(400).json({ 
-          message: 'Your current plan only supports one account' 
+        return res.status(400).json({
+          message: 'Your current plan only supports one account'
         });
       }
 
@@ -115,10 +118,10 @@ const addAccount = async (req, res) => {
       const selectedAccount = tradingAccounts[0];
 
       // Check if account already exists for the user
-      const existingAccount = await Accounts.findOne({ 
+      const existingAccount = await Accounts.findOne({
         where: { accountNumber: selectedAccount.accountNumber, userId }
       });
-      
+
       if (existingAccount) {
         return res.status(400).json({ error: 'Account number already exists for this user' });
       }
@@ -147,6 +150,40 @@ const addAccount = async (req, res) => {
         lastRefreshedOn: new Date(),
         platform
       });
+
+      if (newAccount) {
+        const tableName = `${userId}_trades`;
+
+        const DynamicTrades = sequelize.define(tableName, {
+          sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
+          accountNumber: { type: DataTypes.STRING, allowNull: false },
+          position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
+          open_date: { type: DataTypes.DATEONLY, allowNull: false },
+          open_time: { type: DataTypes.TIME, allowNull: false },
+          close_date: { type: DataTypes.DATEONLY, allowNull: false },
+          close_time: { type: DataTypes.TIME, allowNull: false },
+          trade_duration: { type: DataTypes.STRING, allowNull: false },
+          trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
+          open_price: { type: DataTypes.FLOAT, allowNull: false },
+          close_price: { type: DataTypes.FLOAT, allowNull: false },
+          no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
+          profit: { type: DataTypes.FLOAT, allowNull: false },
+          sl_price: { type: DataTypes.FLOAT, allowNull: true },
+          tp_price: { type: DataTypes.FLOAT, allowNull: true },
+          type: { type: DataTypes.STRING, allowNull: false },
+          symbol: { type: DataTypes.STRING, allowNull: false },
+          volume: { type: DataTypes.FLOAT, allowNull: false },
+          history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
+          history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
+        }, {
+          tableName,
+          timestamps: false,
+        });
+
+        // ✅ Actually create the table in the DB
+        await DynamicTrades.sync();
+      }
+
 
       // Return the created account
       return res.status(201).json({
