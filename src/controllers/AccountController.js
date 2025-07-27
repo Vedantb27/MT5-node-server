@@ -30,15 +30,20 @@ const addAccount = async (req, res) => {
     const userId = req.user.id;
     const { accountNumber, password, server, platform, code } = req.body;
 
+    const existingAccounts = await Accounts.findAll({ where: { userId } });
+    if (existingAccounts.length > 0) {
+      return res.status(400).json({ message: 'Your current plan only supports one account' });
+    }
+
     // Validate platform
     if (!['MT5', 'cTrader'].includes(platform)) {
-      return res.status(400).json({ error: 'Invalid platform specified' });
+      return res.status(400).json({ message: 'Invalid platform specified' });
     }
 
     // Validate input based on platform
     if (platform === 'MT5') {
       if (!accountNumber || !password || !server) {
-        return res.status(400).json({ error: 'Account number, password, and server are required for MT5' });
+        return res.status(400).json({ message: 'Account number, password, and server are required for MT5' });
       }
 
       // Validate MT5 credentials
@@ -47,14 +52,14 @@ const addAccount = async (req, res) => {
       }, { status: () => ({ json: () => { } }) });
 
       if (loginResponse.status !== 200) {
-        return res.status(400).json({ error: 'Invalid MT5 credentials', details: loginResponse.error });
+        return res.status(400).json({ message: 'Invalid MT5 credentials', details: loginResponse.error });
       }
     } else if (platform === 'cTrader') {
       if (!code) {
-        return res.status(400).json({ error: 'Code is required for cTrader' });
+        return res.status(400).json({ message: 'Code is required for cTrader' });
       }
       if (!accountNumber) {
-        return res.status(400).json({ error: 'Account number is required for cTrader' });
+        return res.status(400).json({ message: 'Account number is required for cTrader' });
       }
 
       // Get access token from cTrader
@@ -125,7 +130,7 @@ const addAccount = async (req, res) => {
       });
 
       if (existingAccount) {
-        return res.status(400).json({ error: 'Account number already exists for this user' });
+        return res.status(400).json({ message: 'Account number already exists for this user' });
       }
 
       // Create new account in Accounts table
@@ -216,7 +221,7 @@ const addAccount = async (req, res) => {
     // Check if account already exists for the user (for MT5)
     const existingAccount = await Accounts.findOne({ where: { accountNumber, userId } });
     if (existingAccount) {
-      return res.status(400).json({ error: 'Account number already exists for this user' });
+      return res.status(400).json({ message: 'Account number already exists for this user' });
     }
 
     // Create new account (for MT5)
@@ -239,7 +244,7 @@ const addAccount = async (req, res) => {
     });
   } catch (err) {
     console.error(`Error adding account:`, err);
-    return res.status(500).json({ error: 'Internal server error' });
+    return res.status(500).json({ message: 'Internal server error' });
   }
 };
 
