@@ -4,7 +4,7 @@ const { formatHistory } = require('../utils/Cformatter');
 const BASE_URL = 'http://localhost:9000'; // Your Flask server base URL
 
 const DEFAULT_FROM = 915148800000;    // 1999-01-01
-const DEFAULT_TO = 1767225600000;     // 2025-01-01
+const DEFAULT_TO = 1999925600000;     // 2025-01-01
 
 async function fetchDealHistory(accountId, from = DEFAULT_FROM, to = DEFAULT_TO) {
   const payload = {

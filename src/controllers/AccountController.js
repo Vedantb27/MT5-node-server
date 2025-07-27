@@ -164,6 +164,7 @@ const addAccount = async (req, res) => {
           const DynamicTrades = sequelize.define(tableName, {
             sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
             accountId: { type: DataTypes.STRING, allowNull: false },
+            accountNumber: {type: DataTypes.BIGINT,allowNull: false},
             position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
             open_date: { type: DataTypes.DATEONLY, allowNull: false },
             open_time: { type: DataTypes.TIME, allowNull: false },
