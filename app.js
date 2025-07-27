@@ -49,7 +49,7 @@ if (cluster.isMaster) {
     // Routes
     app.use('/api/auth', authRoutes);
     app.use('/api', tradeRoutes);
-    app.use('/api2', historyRoutes);
+    app.use('/api2', historyRoutes.router);
     app.use('/api2', loginRoutes.router);
 
     app.get('/', (req, res) => {

@@ -5,7 +5,7 @@ const Accounts = require('./Accounts');
 
 const Trades = sequelize.define('Trades', {
     sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
-    accountNumber: { type: DataTypes.STRING, allowNull: false },
+    accountId: { type: DataTypes.STRING, allowNull: false },
     position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
     open_date: { type: DataTypes.DATEONLY, allowNull: false },
     open_time: { type: DataTypes.TIME, allowNull: false },

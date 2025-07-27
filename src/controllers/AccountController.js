@@ -4,6 +4,8 @@ const FetchedCtraderAccounts = require('../models/FetchedCtraderAccounts');
 const mt5Login = require('./tradeController').mt5Login;
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
+const { getMyFxbookHistory } = require('./ChistoryController');
+const { loginAccount } = require('./CauthController');
 
 
 
@@ -154,34 +156,48 @@ const addAccount = async (req, res) => {
       if (newAccount) {
         const tableName = `${userId}_trades`;
 
-        const DynamicTrades = sequelize.define(tableName, {
-          sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
-          accountNumber: { type: DataTypes.STRING, allowNull: false },
-          position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
-          open_date: { type: DataTypes.DATEONLY, allowNull: false },
-          open_time: { type: DataTypes.TIME, allowNull: false },
-          close_date: { type: DataTypes.DATEONLY, allowNull: false },
-          close_time: { type: DataTypes.TIME, allowNull: false },
-          trade_duration: { type: DataTypes.STRING, allowNull: false },
-          trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
-          open_price: { type: DataTypes.FLOAT, allowNull: false },
-          close_price: { type: DataTypes.FLOAT, allowNull: false },
-          no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
-          profit: { type: DataTypes.FLOAT, allowNull: false },
-          sl_price: { type: DataTypes.FLOAT, allowNull: true },
-          tp_price: { type: DataTypes.FLOAT, allowNull: true },
-          type: { type: DataTypes.STRING, allowNull: false },
-          symbol: { type: DataTypes.STRING, allowNull: false },
-          volume: { type: DataTypes.FLOAT, allowNull: false },
-          history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
-          history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
-        }, {
-          tableName,
-          timestamps: false,
-        });
+        const tableExists = await sequelize.getQueryInterface().showAllTables()
+          .then(tables => tables.includes(tableName));
 
-        // ✅ Actually create the table in the DB
-        await DynamicTrades.sync();
+        if (!tableExists) {
+
+          const DynamicTrades = sequelize.define(tableName, {
+            sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
+            accountId: { type: DataTypes.STRING, allowNull: false },
+            position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
+            open_date: { type: DataTypes.DATEONLY, allowNull: false },
+            open_time: { type: DataTypes.TIME, allowNull: false },
+            close_date: { type: DataTypes.DATEONLY, allowNull: false },
+            close_time: { type: DataTypes.TIME, allowNull: false },
+            trade_duration: { type: DataTypes.STRING, allowNull: false },
+            trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
+            open_price: { type: DataTypes.FLOAT, allowNull: false },
+            close_price: { type: DataTypes.FLOAT, allowNull: false },
+            no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
+            profit: { type: DataTypes.FLOAT, allowNull: false },
+            sl_price: { type: DataTypes.FLOAT, allowNull: true },
+            tp_price: { type: DataTypes.FLOAT, allowNull: true },
+            type: { type: DataTypes.STRING, allowNull: false },
+            symbol: { type: DataTypes.STRING, allowNull: false },
+            volume: { type: DataTypes.FLOAT, allowNull: false },
+            history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
+            history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
+          }, {
+            tableName,
+            timestamps: false,
+          });
+
+          const tableCreated = await DynamicTrades.sync();
+        }
+
+        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId)
+        if (!history.success) {
+          const login = await loginAccount({ accessToken, ctidTraderAccountId: selectedAccount?.accountId })
+          if (login?.success) {
+            await getMyFxbookHistory(selectedAccount?.accountId, userId)
+          }
+        }
+
       }
 
 

@@ -1,4 +1,8 @@
 const dayjs = require('dayjs');
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/database');
+// Assuming Sequelize instance is passed or initialized elsewhere
+// Example: const sequelize = new Sequelize('sqlite::memory:');
 
 function msToDate(ms) {
   return dayjs(ms).format('DD.MM.YYYY HH:mm');
@@ -11,15 +15,59 @@ function formatDuration(openMs, closeMs) {
   return `${hours}h ${mins}m`;
 }
 
-function formatHistory(deals, orders, symbolMap = {}) {
-  const closedOrders = orders.filter(o => o.closingOrder);
-  const openOrders = orders.filter(o => !o.closingOrder);
+function formatDurationSeconds(openMs, closeMs) {
+  const diff = closeMs - openMs;
+  return (diff / 1000).toFixed(0); // Duration in seconds
+}
 
-  return closedOrders.map(closedOrder => {
+// Define the trade model dynamically for a given userId
+function defineTradeModel(userId) {
+  return sequelize.define(
+    `${userId}_trades`,
+    {
+      sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
+      accountId: { type: DataTypes.STRING, allowNull: false },
+      position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
+      open_date: { type: DataTypes.DATEONLY, allowNull: false },
+      open_time: { type: DataTypes.TIME, allowNull: false },
+      close_date: { type: DataTypes.DATEONLY, allowNull: false },
+      close_time: { type: DataTypes.TIME, allowNull: false },
+      trade_duration: { type: DataTypes.STRING, allowNull: false },
+      trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
+      open_price: { type: DataTypes.FLOAT, allowNull: false },
+      close_price: { type: DataTypes.FLOAT, allowNull: false },
+      no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
+      profit: { type: DataTypes.FLOAT, allowNull: false },
+      sl_price: { type: DataTypes.FLOAT, allowNull: true },
+      tp_price: { type: DataTypes.FLOAT, allowNull: true },
+      type: { type: DataTypes.STRING, allowNull: false },
+      symbol: { type: DataTypes.STRING, allowNull: false },
+      volume: { type: DataTypes.FLOAT, allowNull: false },
+      history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
+      history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
+    },
+    {
+      tableName: `${userId}_trades`,
+      timestamps: false, // Disable createdAt/updatedAt if not needed
+    }
+  );
+}
+
+async function formatHistory(deals, orders, symbolMap = {}, accountId, userId) {
+  const closedOrders = orders.filter((o) => o.closingOrder);
+  const openOrders = orders.filter((o) => !o.closingOrder);
+
+  // Define the trade model for the specific user
+  const Trade = defineTradeModel(userId);
+
+  // Ensure the table exists (create if it doesn't)
+  await Trade.sync();
+
+  const formattedTrades = closedOrders.map(async (closedOrder) => {
     const posId = closedOrder.positionId;
 
-    const entryOrder = openOrders.find(o => o.positionId === posId);
-    const deal = deals.find(d => d.positionId === posId && d.dealStatus === 'FILLED');
+    const entryOrder = openOrders.find((o) => o.positionId === posId);
+    const deal = deals.find((d) => d.positionId === posId && d.dealStatus === 'FILLED');
 
     if (!entryOrder || !deal) return null;
 
@@ -44,6 +92,34 @@ function formatHistory(deals, orders, symbolMap = {}) {
         ).toFixed(2)
       : 0;
 
+    const openDateTime = msToDate(openTimestamp).split(' ');
+    const closeDateTime = msToDate(closeTimestamp).split(' ');
+
+    const tradeData = {
+      accountId,
+      position_id: posId,
+      open_date: openDateTime[0].split('.').reverse().join('-'), // Convert DD.MM.YYYY to YYYY-MM-DD
+      open_time: openDateTime[1],
+      close_date: closeDateTime[0].split('.').reverse().join('-'), // Convert DD.MM.YYYY to YYYY-MM-DD
+      close_time: closeDateTime[1],
+      trade_duration: formatDuration(openTimestamp, closeTimestamp),
+      trade_duration_seconds: formatDurationSeconds(openTimestamp, closeTimestamp),
+      open_price: parseFloat(openPrice),
+      close_price: parseFloat(closePrice),
+      no_of_deals: 1, // Assuming one deal per closed order
+      profit: parseFloat(profit),
+      sl_price: null, // Not provided in original data
+      tp_price: null, // Not provided in original data
+      type: action,
+      symbol,
+      volume: parseFloat(lots),
+      history_from_date: openDateTime[0].split('.').reverse().join('-'), // Use open_date as default
+      history_to_date: closeDateTime[0].split('.').reverse().join('-'), // Use close_date as default
+    };
+
+    // Store the trade in the database
+    await Trade.create(tradeData);
+
     return {
       'position id': posId,
       'Open Date': msToDate(openTimestamp),
@@ -59,11 +135,14 @@ function formatHistory(deals, orders, symbolMap = {}) {
       'Net Profit': parseFloat(profit),
       'Duration': formatDuration(openTimestamp, closeTimestamp),
       'Gain': '-',
-      'Risk Reward': '-'
+      'Risk Reward': '-',
     };
-  }).filter(Boolean);
-}
+  });
 
+  // Wait for all trades to be processed and filter out null results
+  const results = await Promise.all(formattedTrades);
+  return results.filter(Boolean);
+}
 
 function mapSymbol(symbolId) {
   const symbols = {
@@ -74,5 +153,5 @@ function mapSymbol(symbolId) {
 }
 
 module.exports = {
-  formatHistory
+  formatHistory,
 };
