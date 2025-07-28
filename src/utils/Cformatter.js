@@ -27,6 +27,7 @@ function defineTradeModel(userId) {
     {
       sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
       accountId: { type: DataTypes.STRING, allowNull: false },
+      accountNumber: {type: DataTypes.BIGINT,allowNull: false},
       position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
       open_date: { type: DataTypes.DATEONLY, allowNull: false },
       open_time: { type: DataTypes.TIME, allowNull: false },
@@ -48,12 +49,12 @@ function defineTradeModel(userId) {
     },
     {
       tableName: `${userId}_trades`,
-      timestamps: false, // Disable createdAt/updatedAt if not needed
+      timestamps: true, 
     }
   );
 }
 
-async function formatHistory(deals, orders, symbolMap = {}, accountId, userId) {
+async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,accountNumber) {
   const closedOrders = orders.filter((o) => o.closingOrder);
   const openOrders = orders.filter((o) => !o.closingOrder);
 
@@ -97,6 +98,7 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId) {
 
     const tradeData = {
       accountId,
+      accountNumber,
       position_id: posId,
       open_date: openDateTime[0].split('.').reverse().join('-'), // Convert DD.MM.YYYY to YYYY-MM-DD
       open_time: openDateTime[1],

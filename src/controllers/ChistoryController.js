@@ -3,13 +3,13 @@ const router = express.Router();
 const { fetchFormattedHistory } = require('../services/CtraderApi');
 
 // Core function to fetch history
-async function getMyFxbookHistory(ctidTraderAccountId,userId) {
+async function getMyFxbookHistory(ctidTraderAccountId,userId,accountNumber) {
   if (!ctidTraderAccountId) {
     return { success: false, status: 400, error: 'Missing ctidTraderAccountId' };
   }
 
   try {
-    const history = await fetchFormattedHistory(ctidTraderAccountId,userId);
+    const history = await fetchFormattedHistory(ctidTraderAccountId,userId,accountNumber);
     return { success: true, status: 200, data: history };
   } catch (err) {
     console.error('fetchHisError:', err);

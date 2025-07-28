@@ -75,7 +75,7 @@ async function fetchSymbolMap(accountId) {
   }
 }
 
-async function fetchFormattedHistory(accountId,userId) {
+async function fetchFormattedHistory(accountId,userId,accountNumber) {
   const from = DEFAULT_FROM;
   const to = DEFAULT_TO;
 
@@ -86,7 +86,7 @@ async function fetchFormattedHistory(accountId,userId) {
       fetchSymbolMap(accountId)
     ]);
 
-    return await formatHistory(deals, orders, symbolMap,accountId,userId);
+    return await formatHistory(deals, orders, symbolMap,accountId,userId,accountNumber);
   } catch (error) {
     console.error('Error fetching formatted history:', error.message);
     throw new Error('Failed to fetch formatted trade history');
