@@ -111,8 +111,62 @@ const calculatePositionSize = async (req, res) => {
   }
 };
 
+
+const calculateProfit = async (req, res) => {
+  try {
+    const { buyOrSell, lots, pipAmount, onePipSize, lotSize, rate } = req.body;
+    // Validate required fields
+    if (
+      buyOrSell === undefined || // allow falsey values like 0
+      lots === undefined ||
+      pipAmount === undefined ||
+      onePipSize === undefined ||
+      lotSize === undefined ||
+      rate === undefined
+    ) {
+      return res.status(400).json({ message: 'All parameters are required' });
+    }
+
+    const params = new URLSearchParams();
+    params.append('buyOrSell', buyOrSell);
+    params.append('lots', lots);
+    params.append('pipAmount', pipAmount);
+    params.append('onePipSize', onePipSize);
+    params.append('lotSize', lotSize);
+    params.append('rate', rate);
+
+    const response = await axios.post(
+      'https://fxverify.com/widgets/calculation/profit',
+      params,
+      {
+        headers: {
+          Accept: 'application/json, text/javascript, */*; q=0.01',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+          referer: 'https://fxverify.com/tools/profit-calculator?s=AUD.USD', // Match the referer from your curl
+          'sec-ch-ua': '"Google Chrome";v="138", "Chromium";v="138", "Not/A)Brand";v="24"',
+          'sec-ch-ua-mobile': '?0',
+          'sec-ch-ua-platform': '"Windows"',
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-origin',
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+          'X-Requested-With': 'XMLHttpRequest',
+        },
+      }
+    );
+console.log(response,"responseresponse")
+    return res.status(200).json(response.data);
+  } catch (err) {
+    console.error('Error calculating profit:', err.message);
+    return res.status(500).json({ message: 'Failed to calculate profit', error: err.message });
+  }
+};
+
+
 module.exports = {
   getSymbolData,
   getExchangeRate,
   calculatePositionSize,
+  calculateProfit
 };

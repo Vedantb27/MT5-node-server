@@ -169,7 +169,7 @@ const addAccount = async (req, res) => {
           const DynamicTrades = sequelize.define(tableName, {
             sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
             accountId: { type: DataTypes.STRING, allowNull: false },
-            accountNumber: {type: DataTypes.BIGINT,allowNull: false},
+            accountNumber: { type: DataTypes.BIGINT, allowNull: false },
             position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
             open_date: { type: DataTypes.DATEONLY, allowNull: false },
             open_time: { type: DataTypes.TIME, allowNull: false },
@@ -188,6 +188,16 @@ const addAccount = async (req, res) => {
             volume: { type: DataTypes.FLOAT, allowNull: false },
             history_from_date: { type: DataTypes.DATEONLY, allowNull: false },
             history_to_date: { type: DataTypes.DATEONLY, allowNull: false },
+            createdAt: {
+              type: DataTypes.DATE,
+              allowNull: false,
+              defaultValue: DataTypes.NOW,
+            },
+            updatedAt: {
+              type: DataTypes.DATE,
+              allowNull: false,
+              defaultValue: DataTypes.NOW,
+            },
           }, {
             tableName,
             timestamps: false,
@@ -196,11 +206,11 @@ const addAccount = async (req, res) => {
           const tableCreated = await DynamicTrades.sync();
         }
 
-        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId,accountNumber)
+        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
         if (!history.success) {
           const login = await loginAccount({ accessToken, ctidTraderAccountId: selectedAccount?.accountId })
           if (login?.success) {
-            await getMyFxbookHistory(selectedAccount?.accountId, userId,accountNumber)
+            await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
           }
         }
 

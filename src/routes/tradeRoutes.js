@@ -24,5 +24,6 @@ router.post('/trading-accounts', AccountController.addAccount);
 router.get('/position-size/symbol', PositionSizeController.getSymbolData);
 router.get('/position-size/exchange-rate', PositionSizeController.getExchangeRate);
 router.post('/position-size/calculate', PositionSizeController.calculatePositionSize);
+router.post('/position-size/calculate-profit', PositionSizeController.calculateProfit);
 
 module.exports = router;
