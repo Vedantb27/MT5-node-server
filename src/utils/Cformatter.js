@@ -1,5 +1,5 @@
 const dayjs = require('dayjs');
-const { DataTypes } = require('sequelize');
+const { DataTypes, INTEGER, NUMBER } = require('sequelize');
 const sequelize = require('../config/database');
 // Assuming Sequelize instance is passed or initialized elsewhere
 // Example: const sequelize = new Sequelize('sqlite::memory:');
@@ -68,7 +68,7 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,ac
     const posId = closedOrder.positionId;
 
     const entryOrder = openOrders.find((o) => o.positionId === posId);
-    const deal = deals.find((d) => d.positionId === posId && d.dealStatus === 'FILLED');
+    const deal = deals.find((d) => d.positionId === posId && d.dealStatus === 'Filled');
 
     if (!entryOrder || !deal) return null;
 
@@ -95,10 +95,11 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,ac
 
     const openDateTime = msToDate(openTimestamp).split(' ');
     const closeDateTime = msToDate(closeTimestamp).split(' ');
-
+    console.log('accounId',accountId,);
+    console.log('\n accountNumber',accountNumber,);
     const tradeData = {
-      accountId,
-      accountNumber,
+      accountId:BigInt(accountId),
+      accountNumber:BigInt(accountNumber),
       position_id: posId,
       open_date: openDateTime[0].split('.').reverse().join('-'), // Convert DD.MM.YYYY to YYYY-MM-DD
       open_time: openDateTime[1],

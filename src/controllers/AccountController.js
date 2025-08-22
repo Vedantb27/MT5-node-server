@@ -29,7 +29,7 @@ const addAccount = async (req, res) => {
   try {
     const userId = req.user.id;
     const { accountNumber, password, server, platform, code } = req.body;
-
+    console.log('addAccount APi accountNumber:', accountNumber);
     const existingAccounts = await Accounts.findAll({ where: { userId } });
     if (existingAccounts.length > 0) {
       return res.status(400).json({ message: 'Your current plan only supports one account' });

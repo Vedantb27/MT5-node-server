@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const router = express.Router();
 
-const BASE_URL = 'http://localhost:9000'; // Flask server
+const BASE_URL = 'http://localhost:5000'; // Flask server
 let authenticatedAccountIds = []; // Store multiple authenticated accounts
 
 async function loginAccount({ accessToken, ctidTraderAccountId }) {
@@ -11,7 +11,7 @@ async function loginAccount({ accessToken, ctidTraderAccountId }) {
     try {
         const response = await axios.post(`${BASE_URL}/account-auth`, {
             accessToken,
-            ctidTraderAccountId,
+            accountId:`${ctidTraderAccountId}`,
         });
 
         const data = response.data;
