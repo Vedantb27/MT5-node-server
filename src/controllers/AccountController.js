@@ -206,11 +206,11 @@ const addAccount = async (req, res) => {
           const tableCreated = await DynamicTrades.sync();
         }
 
-        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
+        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId, selectedAccount?.accountNumber)
         if (!history.success) {
           const login = await loginAccount({ accessToken, ctidTraderAccountId: selectedAccount?.accountId })
           if (login?.success) {
-            await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
+            await getMyFxbookHistory(selectedAccount?.accountId, userId, selectedAccount?.accountNumber)
           }
         }
 
