@@ -11,7 +11,7 @@ async function loginAccount({ accessToken, ctidTraderAccountId }) {
     try {
         const response = await axios.post(`${BASE_URL}/account-auth`, {
             accessToken,
-            ctidTraderAccountId,
+            accountId:`${ctidTraderAccountId}`,
         });
 
         const data = response.data;

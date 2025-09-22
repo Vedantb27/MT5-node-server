@@ -29,7 +29,7 @@ const addAccount = async (req, res) => {
   try {
     const userId = req.user.id;
     const { accountNumber, password, server, platform, code } = req.body;
-
+    console.log('addAccount APi accountNumber:', accountNumber);
     const existingAccounts = await Accounts.findAll({ where: { userId } });
     if (existingAccounts.length > 0) {
       return res.status(400).json({ message: 'Your current plan only supports one account' });
@@ -206,11 +206,11 @@ const addAccount = async (req, res) => {
           const tableCreated = await DynamicTrades.sync();
         }
 
-        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
+        const history = await getMyFxbookHistory(selectedAccount?.accountId, userId, selectedAccount?.accountNumber)
         if (!history.success) {
           const login = await loginAccount({ accessToken, ctidTraderAccountId: selectedAccount?.accountId })
           if (login?.success) {
-            await getMyFxbookHistory(selectedAccount?.accountId, userId, accountNumber)
+            await getMyFxbookHistory(selectedAccount?.accountId, userId, selectedAccount?.accountNumber)
           }
         }
 
