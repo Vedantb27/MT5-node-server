@@ -3,6 +3,7 @@ const tradeController = require('../controllers/tradeController');
 const calendarEvents = require('../controllers/calendarController');
 const AccountController = require('../controllers/AccountController');
 const PositionSizeController = require('../controllers/PositionSizeController');
+const ServerListController = require('../controllers/ServerListController');
 const authMiddleware = require('../middleware/auth');
 
 const router = express.Router();
@@ -18,6 +19,11 @@ router.get('/get-notes', calendarEvents.getNotes);
 // Accounts routes
 router.get('/trading-accounts', AccountController.getAccounts);
 router.post('/trading-accounts', AccountController.addAccount);
+router.post('/request-server', AccountController.requestServer);
+
+
+// Server List route
+router.get('/server-list', ServerListController.getServerList);
 
 
 // Position size calculator routes

@@ -23,8 +23,8 @@ const Accounts = sequelize.define('Accounts', {
   },
   accountId: {
     type: DataTypes.BIGINT,
-    allowNull: false,
-    unique: true,
+    allowNull: true,
+    // unique: true,
   },
   password: {
     type: DataTypes.STRING,
@@ -36,7 +36,7 @@ const Accounts = sequelize.define('Accounts', {
   },
   live: {
     type: DataTypes.BOOLEAN,
-    allowNull: false
+    allowNull: true,
   },
   brokerName: {
     type: DataTypes.STRING,
@@ -48,23 +48,23 @@ const Accounts = sequelize.define('Accounts', {
   },
   depositCurrency: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   traderRegistrationTimestamp: {
     type: DataTypes.BIGINT,
-    allowNull: false,
+    allowNull: true,
   },
   traderAccountType: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   leverage: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
   leverageInCents: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
   platform: {
     type: DataTypes.STRING,
@@ -72,23 +72,23 @@ const Accounts = sequelize.define('Accounts', {
   },
   balance: {
     type: DataTypes.DOUBLE,
-    allowNull: false,
+    allowNull: true,
   },
   deleted: {
     type: DataTypes.BOOLEAN,
-    allowNull: false,
+    allowNull: true,
   },
   accountStatus: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   swapFree: {
     type: DataTypes.BOOLEAN,
-    allowNull: false,
+    allowNull: true,
   },
   moneyDigits: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true,
   },
   accessToken: {
     type: DataTypes.TEXT,
@@ -106,6 +106,10 @@ const Accounts = sequelize.define('Accounts', {
     type: DataTypes.DATE,
     allowNull: true,
     defaultValue: DataTypes.NOW,
+  },
+  FetchedHistoryTill: {
+    type: DataTypes.DATE,
+    allowNull: true,
   },
   createdAt: {
     type: DataTypes.DATE,

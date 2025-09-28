@@ -27,7 +27,7 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ error: 'User not found' });
     }
     // Attach user data to the request object
-    req.user = decoded;
+    req.user = {...decoded,firstName:user?.firstName};
     next(); // Proceed to the next middleware or route handler
   } catch (err) {
     console.error('Auth middleware error:', err);

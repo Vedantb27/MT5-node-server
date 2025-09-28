@@ -8,6 +8,8 @@ const os = require('os');
 const cluster = require('cluster');
 const historyRoutes = require('./src/controllers/ChistoryController');
 const loginRoutes = require('./src/controllers/CauthController')
+const schedule = require('node-schedule');
+const { saveServerList, fetchServerList } = require('./src/controllers/ServerListController');
 
 const totalCpus = os.cpus().length;
 const PORT = 8000;
@@ -45,6 +47,21 @@ if (cluster.isMaster) {
             .then(() => console.log('Database synced'))
             .catch(err => console.error('Error syncing database:', err));
     }
+
+   
+    if (cluster.worker.id === 1) {
+        schedule.scheduleJob('0 */2 * * *', async () => {
+            try {
+                const servers = await fetchServerList();
+                saveServerList(servers);
+                console.log('Server list updated successfully via scheduler');
+            } catch (err) {
+                console.error('Error updating server list via scheduler:', err);
+            }
+        });
+        console.log('Scheduler for server list initialized in worker 1');
+    }
+
 
     // Routes
     app.use('/api/auth', authRoutes);

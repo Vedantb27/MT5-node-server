@@ -23,31 +23,8 @@ const fetchTrades = async (req, res) => {
     }
 
   
-    await Promise.all(tradeData.map(trade =>
-      Trades.create({
-        accountNumber: { type: DataTypes.STRING, allowNull: false },
-        position_id: trade.position_id,
-        open_date: trade.opening_date,
-        open_time: trade.opening_time,
-        close_date: trade.closing_date,
-        close_time: trade.closing_time,
-        trade_duration: trade.duration_formatted,
-        trade_duration_seconds: trade.duration_seconds,
-        open_price: trade.open_price,
-        close_price: trade.close_price,
-        no_of_deals: trade.deals?.length || 0,
-        profit: trade.profit,
-        sl_price: trade.sl_price ? parseFloat(trade.sl_price) : null,
-        tp_price: trade.tp_price ? parseFloat(trade.tp_price) : null,
-        type: trade.type,
-        symbol: trade.symbol,
-        volume: trade.volume,
-        history_from_date: start_date,
-        history_to_date: end_date
-      })
-    ));
-
-    return res.status(200).json({ message: 'Trade history stored successfully' });
+   
+    return res.status(200).json({tradeData, message: 'Trade history stored successfully' });
   } catch (err) {
     console.error('Error fetching or storing trade history:', err);
     return res.status(500).json({ error: 'Internal server error' });

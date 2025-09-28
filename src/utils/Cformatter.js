@@ -26,7 +26,7 @@ function defineTradeModel(userId) {
     `${userId}_trades`,
     {
       sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
-      accountId: { type: DataTypes.STRING, allowNull: false },
+      accountId: { type: DataTypes.STRING, allowNull: true, },
       accountNumber: {type: DataTypes.BIGINT,allowNull: false},
       position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
       open_date: { type: DataTypes.DATEONLY, allowNull: false },
