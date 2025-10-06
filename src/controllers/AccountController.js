@@ -13,7 +13,7 @@ const getAccounts = async (req, res) => {
     const userId = req.user.id;
     const accounts = await Accounts?.findAll({
       where: { userId },
-      attributes: ['accountNumber', 'server', 'platform', 'balance', 'createdAt'],
+      attributes: ['accountNumber', 'server', 'platform', 'balance', 'depositCurrency', 'createdAt'],
     });
     return res.status(200).json(accounts);
   } catch (err) {
@@ -65,7 +65,8 @@ const addAccount = async (req, res) => {
         password,
         server,
         platform,
-        balance: loginResponse.account_info.balance
+        balance: loginResponse.account_info?.balance,
+        depositCurrency: loginResponse.account_info?.currency
       });
 
       if (newAccount) {
@@ -448,17 +449,17 @@ const addAccount = async (req, res) => {
 
 const requestServer = async (req, res) => {
   try {
-    console.log(req.user,"req.user")
+    console.log(req.user, "req.user")
     const userId = req.user.id;
     const userName = req.user.firstName;
     const { serverName } = req.body;
 
-    
+
     if (!serverName) {
       return res.status(400).json({ message: 'Server name is required' });
     }
 
-   
+
     const existingRequest = await RequestedServer.findOne({
       where: { serverName }
     });

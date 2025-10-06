@@ -43,3 +43,4 @@ build/
 docker-compose.override.yml
 
 database.js
+serverList.json
