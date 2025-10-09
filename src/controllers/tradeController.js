@@ -18,6 +18,7 @@ const fetchTrades = async (req, res) => {
 
     const tradeData = response.data.completed_trades;
 
+
     if (!tradeData || !Array.isArray(tradeData)) {
       return res.status(400).json({ error: 'Invalid trade data received' });
     }

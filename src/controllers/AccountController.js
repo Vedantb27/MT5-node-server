@@ -89,6 +89,8 @@ const addAccount = async (req, res) => {
             trade_duration: { type: DataTypes.STRING, allowNull: false },
             trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
             open_price: { type: DataTypes.FLOAT, allowNull: false },
+            swap: { type: DataTypes.FLOAT, allowNull: false },
+            commission: { type: DataTypes.FLOAT, allowNull: false },
             close_price: { type: DataTypes.FLOAT, allowNull: false },
             no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
             profit: { type: DataTypes.FLOAT, allowNull: false },
@@ -148,6 +150,8 @@ const addAccount = async (req, res) => {
               open_time: { type: DataTypes.TIME, allowNull: false },
               close_date: { type: DataTypes.DATEONLY, allowNull: false },
               close_time: { type: DataTypes.TIME, allowNull: false },
+              swap: { type: DataTypes.FLOAT, allowNull: false },
+              commission: { type: DataTypes.FLOAT, allowNull: false },
               trade_duration: { type: DataTypes.STRING, allowNull: false },
               trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
               open_price: { type: DataTypes.FLOAT, allowNull: false },
@@ -194,6 +198,8 @@ const addAccount = async (req, res) => {
                 trade_duration_seconds: trade.duration_seconds.toString(),
                 open_price: trade.open_price,
                 close_price: trade.close_price,
+                commission: trade.commission,
+                swap: trade.swap,
                 no_of_deals: trade.deals.length,
                 profit: trade.profit,
                 sl_price: sl,
@@ -209,7 +215,11 @@ const addAccount = async (req, res) => {
             // Calculate initial balance
             let sum_profit = await DynamicTrades.sum('profit', { where: { accountNumber: accountNumber } });
             if (sum_profit === null) sum_profit = 0;
-            const initial_balance = loginResponse.account_info.balance - sum_profit;
+            let sum_swap = await DynamicTrades.sum('swap', { where: { accountNumber: accountNumber } });
+            if (sum_swap === null) sum_swap = 0;
+            let sum_commission = await DynamicTrades.sum('commission', { where: { accountNumber: accountNumber } });
+            if (sum_commission === null) sum_commission = 0;
+            const initial_balance = loginResponse.account_info.balance - sum_profit - sum_swap - sum_commission;
             await newAccount.update({ balance: initial_balance, FetchedHistoryTill: new Date() });
           }
         }
@@ -353,6 +363,8 @@ const addAccount = async (req, res) => {
             profit: { type: DataTypes.FLOAT, allowNull: false },
             sl_price: { type: DataTypes.FLOAT, allowNull: true },
             tp_price: { type: DataTypes.FLOAT, allowNull: true },
+            swap: { type: DataTypes.FLOAT, allowNull: false },
+            commission: { type: DataTypes.FLOAT, allowNull: false },
             type: { type: DataTypes.STRING, allowNull: false },
             symbol: { type: DataTypes.STRING, allowNull: false },
             volume: { type: DataTypes.FLOAT, allowNull: false },
@@ -398,6 +410,8 @@ const addAccount = async (req, res) => {
           trade_duration_seconds: { type: DataTypes.STRING, allowNull: false },
           open_price: { type: DataTypes.FLOAT, allowNull: false },
           close_price: { type: DataTypes.FLOAT, allowNull: false },
+          swap: { type: DataTypes.FLOAT, allowNull: false },
+          commission: { type: DataTypes.FLOAT, allowNull: false },
           no_of_deals: { type: DataTypes.FLOAT, allowNull: false },
           profit: { type: DataTypes.FLOAT, allowNull: false },
           sl_price: { type: DataTypes.FLOAT, allowNull: true },
@@ -425,7 +439,7 @@ const addAccount = async (req, res) => {
         // Calculate initial balance
         let sum_profit = await DynamicTrades.sum('profit', { where: { accountNumber: selectedAccount.accountNumber } });
         if (sum_profit === null) sum_profit = 0;
-        const initial_balance = selectedAccount.balance - sum_profit;
+        const initial_balance = (selectedAccount.balance / 100) - sum_profit;
         await newAccount.update({ balance: initial_balance, FetchedHistoryTill: new Date() });
       }
 

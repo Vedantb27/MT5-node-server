@@ -1,8 +1,7 @@
 const dayjs = require('dayjs');
 const { DataTypes, INTEGER, NUMBER } = require('sequelize');
 const sequelize = require('../config/database');
-// Assuming Sequelize instance is passed or initialized elsewhere
-// Example: const sequelize = new Sequelize('sqlite::memory:');
+
 
 function msToDate(ms) {
   return dayjs(ms).format('DD.MM.YYYY HH:mm');
@@ -27,7 +26,7 @@ function defineTradeModel(userId) {
     {
       sr_no: { type: DataTypes.INTEGER, autoIncrement: true },
       accountId: { type: DataTypes.STRING, allowNull: true, },
-      accountNumber: {type: DataTypes.BIGINT,allowNull: false},
+      accountNumber: { type: DataTypes.BIGINT, allowNull: false },
       position_id: { type: DataTypes.INTEGER, primaryKey: true, unique: true, allowNull: false },
       open_date: { type: DataTypes.DATEONLY, allowNull: false },
       open_time: { type: DataTypes.TIME, allowNull: false },
@@ -41,6 +40,8 @@ function defineTradeModel(userId) {
       profit: { type: DataTypes.FLOAT, allowNull: false },
       sl_price: { type: DataTypes.FLOAT, allowNull: true },
       tp_price: { type: DataTypes.FLOAT, allowNull: true },
+      swap: { type: DataTypes.FLOAT, allowNull: false },
+      commission: { type: DataTypes.FLOAT, allowNull: false },
       type: { type: DataTypes.STRING, allowNull: false },
       symbol: { type: DataTypes.STRING, allowNull: false },
       volume: { type: DataTypes.FLOAT, allowNull: false },
@@ -49,12 +50,12 @@ function defineTradeModel(userId) {
     },
     {
       tableName: `${userId}_trades`,
-      timestamps: true, 
+      timestamps: true,
     }
   );
 }
 
-async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,accountNumber) {
+async function formatHistory(deals, orders, symbolMap = {}, accountId, userId, accountNumber) {
   const closedOrders = orders.filter((o) => o.closingOrder);
   const openOrders = orders.filter((o) => !o.closingOrder);
 
@@ -87,19 +88,19 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,ac
 
     const profit = deal?.closePositionDetail
       ? (
-          parseFloat(deal.closePositionDetail.grossProfit) +
-          parseFloat(deal.closePositionDetail.commission) +
-          parseFloat(deal.closePositionDetail.swap)
-        ).toFixed(2)
+        parseFloat(deal.closePositionDetail.grossProfit) +
+        parseFloat(deal.closePositionDetail.commission) +
+        parseFloat(deal.closePositionDetail.swap)
+      ).toFixed(2)
       : 0;
 
     const openDateTime = msToDate(openTimestamp).split(' ');
     const closeDateTime = msToDate(closeTimestamp).split(' ');
-    console.log('accounId',accountId,);
-    console.log('\n accountNumber',accountNumber,);
+    console.log('accounId', accountId,);
+    console.log('\n accountNumber', accountNumber,);
     const tradeData = {
-      accountId:BigInt(accountId),
-      accountNumber:BigInt(accountNumber),
+      accountId: BigInt(accountId),
+      accountNumber: BigInt(accountNumber),
       position_id: posId,
       open_date: openDateTime[0].split('.').reverse().join('-'), // Convert DD.MM.YYYY to YYYY-MM-DD
       open_time: openDateTime[1],
@@ -110,11 +111,13 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId,ac
       open_price: parseFloat(openPrice),
       close_price: parseFloat(closePrice),
       no_of_deals: 1, // Assuming one deal per closed order
-      profit: parseFloat(profit),
+      profit: parseFloat(profit)/100,
       sl_price: null, // Not provided in original data
       tp_price: null, // Not provided in original data
       type: action,
       symbol,
+      swap:deal.closePositionDetail.swap/100,
+      commission:deal.closePositionDetail.commission/100,
       volume: parseFloat(lots),
       history_from_date: openDateTime[0].split('.').reverse().join('-'), // Use open_date as default
       history_to_date: closeDateTime[0].split('.').reverse().join('-'), // Use close_date as default
