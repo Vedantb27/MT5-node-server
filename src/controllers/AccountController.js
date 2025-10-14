@@ -65,8 +65,9 @@ const addAccount = async (req, res) => {
         password,
         server,
         platform,
-        balance: loginResponse.account_info?.balance,
-        depositCurrency: loginResponse.account_info?.currency
+        balance: loginResponse.account_info?.initial_balance,
+        depositCurrency: loginResponse.account_info?.currency,
+        FetchedHistoryTill: new Date()
       });
 
       if (newAccount) {
@@ -201,7 +202,7 @@ const addAccount = async (req, res) => {
                 commission: trade.commission,
                 swap: trade.swap,
                 no_of_deals: trade.deals.length,
-                profit: trade.profit,
+                profit: Math.trunc((trade.profit + (trade.commission) + (trade.swap)) * 100) / 100,
                 sl_price: sl,
                 tp_price: tp,
                 type: trade.type,
@@ -219,8 +220,8 @@ const addAccount = async (req, res) => {
             if (sum_swap === null) sum_swap = 0;
             let sum_commission = await DynamicTrades.sum('commission', { where: { accountNumber: accountNumber } });
             if (sum_commission === null) sum_commission = 0;
-            const initial_balance = loginResponse.account_info.balance - sum_profit - sum_swap - sum_commission;
-            await newAccount.update({ balance: initial_balance, FetchedHistoryTill: new Date() });
+          
+            
           }
         }
       }
