@@ -86,13 +86,7 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId, a
     const lots = entryOrder.tradeData.volume / 100000;
     const pips = ((closePrice - openPrice) * 10000 * (action === 'SELL' ? -1 : 1)).toFixed(1);
 
-    const profit = deal?.closePositionDetail
-      ? (
-        parseFloat(deal.closePositionDetail.grossProfit) +
-        parseFloat(deal.closePositionDetail.commission) +
-        parseFloat(deal.closePositionDetail.swap)
-      ).toFixed(2)
-      : 0;
+    
 
     const openDateTime = msToDate(openTimestamp).split(' ');
     const closeDateTime = msToDate(closeTimestamp).split(' ');
@@ -111,7 +105,7 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId, a
       open_price: parseFloat(openPrice),
       close_price: parseFloat(closePrice),
       no_of_deals: 1, // Assuming one deal per closed order
-      profit: parseFloat(profit)/100,
+      profit: Math.trunc((parseFloat(deal.closePositionDetail.grossProfit)/100)+(parseFloat(deal.closePositionDetail.commission)/100)+(parseFloat(deal.closePositionDetail.swap)/100)),
       sl_price: null, // Not provided in original data
       tp_price: null, // Not provided in original data
       type: action,
@@ -138,7 +132,7 @@ async function formatHistory(deals, orders, symbolMap = {}, accountId, userId, a
       'Open Price': openPrice,
       'Close Price': closePrice,
       'Pips': parseFloat(pips),
-      'Net Profit': parseFloat(profit),
+      'Net Profit': parseFloat(deal.closePositionDetail.grossProfit),
       'Duration': formatDuration(openTimestamp, closeTimestamp),
       'Gain': '-',
       'Risk Reward': '-',

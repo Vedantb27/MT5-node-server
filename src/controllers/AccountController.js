@@ -212,16 +212,6 @@ const addAccount = async (req, res) => {
                 history_to_date: end_date,
               });
             }
-
-            // Calculate initial balance
-            let sum_profit = await DynamicTrades.sum('profit', { where: { accountNumber: accountNumber } });
-            if (sum_profit === null) sum_profit = 0;
-            let sum_swap = await DynamicTrades.sum('swap', { where: { accountNumber: accountNumber } });
-            if (sum_swap === null) sum_swap = 0;
-            let sum_commission = await DynamicTrades.sum('commission', { where: { accountNumber: accountNumber } });
-            if (sum_commission === null) sum_commission = 0;
-          
-            
           }
         }
       }
