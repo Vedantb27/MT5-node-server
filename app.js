@@ -10,6 +10,10 @@ const historyRoutes = require('./src/controllers/ChistoryController');
 const loginRoutes = require('./src/controllers/CauthController')
 const schedule = require('node-schedule');
 const { saveServerList, fetchServerList } = require('./src/controllers/ServerListController');
+const WebSocket = require('ws');
+const { createClient } = require('redis'); // Explicit import for v4+
+const jwt = require('jsonwebtoken'); // Assuming JWT is used for auth; adjust if different
+const { Accounts } = require('./src/models/Trades'); // Adjust path as needed for your models
 
 const totalCpus = os.cpus().length;
 const PORT = 8000;
@@ -34,7 +38,6 @@ if (cluster.isMaster) {
     // Middleware
     app.use(express.json());
 
-
     app.use(cors({
         origin: '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -47,6 +50,29 @@ if (cluster.isMaster) {
             .then(() => console.log('Database synced'))
             .catch(err => console.error('Error syncing database:', err));
     }
+
+    // Redis client setup (per worker) - Use createClient for v4
+    const redisClient = createClient({
+        url: `redis://${process.env.REDIS_HOST || '127.0.0.1'}:${process.env.REDIS_PORT || 6379}`
+    });
+
+    let redisReady = false;
+    redisClient.on('ready', () => {
+        console.log(`Redis ready in worker ${process.pid}`);
+        redisReady = true;
+    });
+    redisClient.on('error', (err) => {
+        console.error(`Redis error in worker ${process.pid}:`, err);
+        redisReady = false;
+    });
+
+    redisClient.connect()
+        .then(() => {
+            console.log(`Redis connected in worker ${process.pid}`);
+        })
+        .catch(err => {
+            console.error('Redis connection error in worker', process.pid, ':', err);
+        });
 
    
     if (cluster.worker.id === 1) {
@@ -62,7 +88,6 @@ if (cluster.isMaster) {
         console.log('Scheduler for server list initialized in worker 1');
     }
 
-
     // Routes
     app.use('/api/auth', authRoutes);
     app.use('/api', tradeRoutes);
@@ -73,7 +98,168 @@ if (cluster.isMaster) {
         res.send(`Hello from worker ${process.pid}`);
     });
 
-    app.listen(PORT, () => {
+    // Create HTTP server
+    const httpServer = app.listen(PORT, () => {
         console.log(`Worker ${process.pid} is running on PORT ${PORT}`);
+    });
+
+    // WebSocket server attached to HTTP server
+    const wss = new WebSocket.Server({ server: httpServer });
+
+    wss.on('connection', async (ws, req) => {
+        // Parse query params: ?token=...&accountNumber=...
+        const url = new URL(req.url, `http://${req.headers.host}`);
+        const params = url.searchParams;
+        const token = params.get('token');
+        const accountNumber = params.get('accountNumber');
+
+        if (!token || !accountNumber) {
+            ws.close(1008, 'Missing required parameters: token, accountNumber');
+            return;
+        }
+
+        // Verify JWT token (adjust based on your auth implementation)
+        let user;
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            user = decoded;
+        } catch (err) {
+            console.error('Token verification failed:', err);
+            ws.close(1008, 'Invalid or expired token');
+            return;
+        }
+
+        // Validate account belongs to user
+        let account;
+        try {
+            account = await Accounts.findOne({
+                where: {
+                    userId: user.id, // Assuming token payload has 'id' as userId
+                    accountNumber: accountNumber
+                }
+            });
+        } catch (err) {
+            console.error('Account validation error:', err);
+            ws.close(1008, 'Database error');
+            return;
+        }
+
+        if (!account) {
+            ws.close(1008, 'Invalid account for this user');
+            return;
+        }
+
+        const namespace = `bot:${user.id}:${accountNumber}:`; // Use decoded user.id for namespace
+
+        // Function to fetch data safely
+        const fetchRedisData = async () => {
+            if (!redisReady) {
+                console.log('Redis not ready, skipping poll');
+                return null;
+            }
+            try {
+                // Fetch pending orders
+                const tradingOrdersIds = await redisClient.sMembers(`${namespace}trading_orders_ids`); // Use sMembers for v4
+                const pending = await Promise.all(
+                    tradingOrdersIds.map(async (id) => {
+                        const key = `${namespace}order:${id}`;
+                        const data = await redisClient.hGetAll(key); // Use hGetAll for v4
+                        const parsed = {};
+                        for (const [k, v] of Object.entries(data)) {
+                            try {
+                                parsed[k] = JSON.parse(v);
+                            } catch {
+                                parsed[k] = v;
+                            }
+                        }
+                        return parsed;
+                    })
+                );
+
+                // Fetch running trades
+                const runningTradesIds = await redisClient.sMembers(`${namespace}running_trades_ids`);
+                const running = await Promise.all(
+                    runningTradesIds.map(async (id) => {
+                        const key = `${namespace}running_trade:${id}`;
+                        const data = await redisClient.hGetAll(key);
+                        const parsed = {};
+                        for (const [k, v] of Object.entries(data)) {
+                            try {
+                                parsed[k] = JSON.parse(v);
+                            } catch {
+                                parsed[k] = v;
+                            }
+                        }
+                        return parsed;
+                    })
+                );
+
+                // Fetch executed trades (list)
+                const executedRaw = await redisClient.lRange(`${namespace}executed_orders`, 0, -1); // Use lRange for v4
+                const executed = executedRaw.map((item) => {
+                    try {
+                        return JSON.parse(item);
+                    } catch {
+                        return null;
+                    }
+                }).filter(Boolean);
+
+                // Fetch removed orders
+                const removedOrdersIds = await redisClient.sMembers(`${namespace}removed_orders_ids`);
+                const removed = await Promise.all(
+                    removedOrdersIds.map(async (id) => {
+                        const key = `${namespace}removed_order:${id}`;
+                        const data = await redisClient.hGetAll(key);
+                        const parsed = {};
+                        for (const [k, v] of Object.entries(data)) {
+                            try {
+                                parsed[k] = JSON.parse(v);
+                            } catch {
+                                parsed[k] = v;
+                            }
+                        }
+                        return parsed;
+                    })
+                );
+
+                return {
+                    pending,
+                    running,
+                    executed,
+                    removed
+                };
+            } catch (err) {
+                console.error('Error in fetchRedisData:', err);
+                return null;
+            }
+        };
+
+        // Polling interval for real-time updates (every 50ms for "as soon as possible"; adjust as needed)
+        const interval = setInterval(async () => {
+            if (ws.readyState !== WebSocket.OPEN) {
+                clearInterval(interval);
+                return;
+            }
+
+            const data = await fetchRedisData();
+            if (data) {
+                ws.send(JSON.stringify({ type: 'update', data, timestamp: Date.now() }));
+            } else if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch data' }));
+            }
+        }, 50); // Poll every 50ms; tune based on load (e.g., 100ms for less aggressive)
+
+        // Send initial connection message
+        ws.send(JSON.stringify({ type: 'connected', message: 'Connected to trading data stream', userId: user.id, accountNumber }));
+
+        ws.on('close', () => {
+            clearInterval(interval);
+            console.log(`WebSocket closed for user ${user.id}, account ${accountNumber}`);
+        });
+
+        ws.on('error', (err) => {
+            console.error('WebSocket error:', err);
+            clearInterval(interval);
+        });
     });
 }

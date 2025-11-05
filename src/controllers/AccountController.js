@@ -57,7 +57,7 @@ const addAccount = async (req, res) => {
       if (existingAccount) {
         return res.status(400).json({ message: 'Account number already exists for this user' });
       }
-
+console.log(loginResponse,"loginResponse")
       // Create new account (for MT5)
       const newAccount = await Accounts.create({
         userId,
@@ -65,8 +65,8 @@ const addAccount = async (req, res) => {
         password,
         server,
         platform,
-        balance: loginResponse.account_info?.initial_balance,
-        depositCurrency: loginResponse.account_info?.currency,
+        balance: loginResponse?.account_info?.initial_balance,
+        depositCurrency: loginResponse?.account_info?.currency,
         FetchedHistoryTill: new Date()
       });
 
