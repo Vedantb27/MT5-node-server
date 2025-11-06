@@ -1,0 +1,18 @@
+// src/routes/redisTradeRoutes.js
+const express = require('express');
+const RedisTradeController = require('../controllers/RedisTradeController');
+const authMiddleware = require('../middleware/auth');
+const router = express.Router();
+router.use(authMiddleware);
+router.post('/add-pending', RedisTradeController.addPending);
+router.put('/update-pending/:id', RedisTradeController.updatePending);
+router.post('/pending/:parentId/add-spot', RedisTradeController.addSpotToPending);
+router.put('/pending/:parentId/spot/:index', RedisTradeController.updateSpotInPending);
+router.post('/add-running', RedisTradeController.addRunning);
+router.put('/running/:id/update-sl-tp-breakeven', RedisTradeController.updateSlTpBreakeven);
+router.put('/running/:id/update-partial-close', RedisTradeController.updatePartialClose);
+router.put('/running/:id/set-volume-to-close', RedisTradeController.setVolumeToClose);
+router.post('/running/:parentId/add-spot', RedisTradeController.addSpotToRunning);
+router.put('/running/:parentId/spot/:index', RedisTradeController.updateSpotInRunning);
+router.post('/queue-delete', RedisTradeController.queueDelete);
+module.exports = router;
