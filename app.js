@@ -165,9 +165,22 @@ if (cluster.isMaster) {
                         return parsed;
                     })
                 );
+                // Fetch market data for symbols
+                const marketKeys = await redisClient.keys(`${namespace}market:*`);
+                const market = await Promise.all(
+                    marketKeys.map(async (key) => {
+                        const data = await redisClient.hGetAll(key);
+                        const symbol = key.split(':').pop();
+                        const bid = data.bid === 'null' ? null : parseFloat(data.bid);
+                        const ask = data.ask === 'null' ? null : parseFloat(data.ask);
+                        const timestamp = data.timestamp;
+                        return { symbol, bid, ask, timestamp };
+                    })
+                );
                 return {
                     pending,
-                    running
+                    running,
+                    market
                 };
             } catch (err) {
                 console.error('Error in fetchRedisData:', err);
