@@ -1,5 +1,6 @@
 // src/controllers/RedisTradeController.js
 const { Accounts } = require('../models/Trades');
+const { getServerTime } = require('../utils/common');
 
 const parseRedisHash = (data) => {
     const parsed = {};
@@ -27,6 +28,9 @@ const addPending = async (req, res) => {
         if (!Account) {
             return res.status(403).json({ error: 'Invalid account number for this user' });
         }
+
+        const startTime = getServerTime().toISOString();
+        orderData.start_time = startTime;
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}order:${id}`;
         const multi = client.multi();
@@ -43,43 +47,74 @@ const addPending = async (req, res) => {
 };
 
 const updatePending = async (req, res) => {
-    const client = req.app.locals.redisClient;
-    const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
-    const userId = req.user?.id;
-    const { accountNumber } = req.body;
-    const id = req.params.id;
-    let updates = req.body;
-    // Exclude spot_adds to not update them here
-    delete updates.accountNumber;
-    delete updates.spot_adds;
-    if (!userId || !accountNumber || !id || Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: 'userId, accountNumber, id, and updates required' });
+  const client = req.app.locals.redisClient;
+  const redisReady = req.app.locals.redisReady;
+  if (!redisReady) return res.status(503).json({ error: "Redis not ready" });
+
+  const userId = req.user?.id;
+  const { accountNumber, stopLoss, takeProfit, removalPrice } = req.body;
+  const id = req.params.id;
+
+  if (!userId || !accountNumber || !id) {
+    return res.status(400).json({ error: "userId, accountNumber, and id required" });
+  }
+
+  try {
+    // Validate account
+    const Account = await Accounts.findOne({
+      where: { userId, accountNumber },
+    });
+
+    if (!Account) {
+      return res.status(403).json({ error: "Invalid account number for this user" });
     }
-    try {
-        const Account = await Accounts.findOne({
-            where: { userId, accountNumber }
-        });
-        if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
-        }
-        const namespace = `bot:${userId}:${accountNumber}:`;
-        const key = `${namespace}order:${id}`;
-        const existingData = await client.hGetAll(key);
-        if (Object.keys(existingData).length === 0) {
-            return res.status(404).json({ error: 'Order not found' });
-        }
-        const multi = client.multi();
-        for (const [k, v] of Object.entries(updates)) {
-            multi.hSet(key, k, JSON.stringify(v));
-        }
-        await multi.exec();
-        res.json({ success: true });
-    } catch (err) {
-        console.error('Update pending error:', err);
-        res.status(500).json({ error: err.message });
+
+    const namespace = `bot:${userId}:${accountNumber}:`;
+    const key = `${namespace}order:${id}`;
+
+    const existingData = await client.hGetAll(key);
+    if (Object.keys(existingData).length === 0) {
+      return res.status(404).json({ error: "Order not found" });
     }
+
+    // Parse values if stored as JSON strings
+    const existingStopLoss = existingData.stopLoss ? JSON.parse(existingData.stopLoss) : null;
+    const existingTakeProfit = existingData.takeProfit ? JSON.parse(existingData.takeProfit) : null;
+
+    // Determine if updates are needed
+    const updates = {};
+    if (stopLoss  && stopLoss !== existingStopLoss) {
+      updates.slToUpdate = stopLoss;
+    }
+    if (takeProfit  && takeProfit !== existingTakeProfit) {
+      updates.tpToUpdate = takeProfit;
+    }
+    if (removalPrice) {
+      updates.removalPrice = removalPrice;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.json({ success: true, message: "No changes detected, nothing updated" });
+    }
+
+    // Perform selective updates
+    const multi = client.multi();
+    for (const [k, v] of Object.entries(updates)) {
+      multi.hSet(key, k, JSON.stringify(v));
+    }
+    await multi.exec();
+
+    res.json({
+      success: true,
+      updatedFields: Object.keys(updates),
+      updates,
+    });
+  } catch (err) {
+    console.error("Update pending error:", err);
+    res.status(500).json({ error: err.message });
+  }
 };
+
 
 const addSpotToPending = async (req, res) => {
     const client = req.app.locals.redisClient;

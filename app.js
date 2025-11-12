@@ -87,7 +87,7 @@ if (cluster.isMaster) {
     // Routes
     app.use('/api/auth', authRoutes);
     app.use('/api', tradeRoutes);
-    app.use('/api/redis', redisTradeRoutes);
+    app.use('/api/trade-manager', redisTradeRoutes);
     app.use('/api2', historyRoutes.router);
     app.use('/api2', loginRoutes.router);
     app.get('/', (req, res) => {
