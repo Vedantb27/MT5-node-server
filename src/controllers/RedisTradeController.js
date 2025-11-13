@@ -14,19 +14,45 @@ const parseRedisHash = (data) => {
     return parsed;
 };
 
+const isValidNumber = (value, min = 0, max = 100000000000000) => {
+    if (value === undefined || value === null) return true;
+    const num = parseFloat(value);
+    return !isNaN(num) && isFinite(num) && num >= min && num <= max;
+};
+
+const validateOrderType = (type) => {
+    if (type == null) return false;
+    const lower = type.toString().toLowerCase();
+    return lower === 'limit' || lower === 'stop';
+};
+
+const validateTradeSetup = (setup) => {
+    if (setup == null) return false;
+    const lower = setup.toString().toLowerCase();
+    return lower === 'buy' || lower === 'sell';
+};
+
 const addPending = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, id, ...orderData } = req.body;
-    if (!userId || !accountNumber || !id) return res.status(400).json({ error: 'userId, accountNumber, id required' });
+    if (!userId || !accountNumber || !id) return res.status(400).json({ message: 'userId, accountNumber, id required' });
+
+    if (!validateOrderType(orderData.order_type)) {
+        return res.status(400).json({ message: 'order_type must be "limit" or "stop" (case-insensitive)' });
+    }
+    if (!validateTradeSetup(orderData.trade_setup)) {
+        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" (case-insensitive)' });
+    }
+
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
 
         const startTime = getServerTime().toISOString();
@@ -39,24 +65,34 @@ const addPending = async (req, res) => {
         }
         multi.sAdd(`${namespace}trading_orders_ids`, id);
         await multi.exec();
-        res.json({ success: true, id });
+        res.status(200).json({ status: 201, message: 'Pending order added successfully', success: true, id });
     } catch (err) {
         console.error('Add pending error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const updatePending = async (req, res) => {
   const client = req.app.locals.redisClient;
   const redisReady = req.app.locals.redisReady;
-  if (!redisReady) return res.status(503).json({ error: "Redis not ready" });
+  if (!redisReady) return res.status(503).json({ message: "Redis not ready" });
 
   const userId = req.user?.id;
   const { accountNumber, stopLoss, takeProfit, removalPrice } = req.body;
   const id = req.params.id;
 
   if (!userId || !accountNumber || !id) {
-    return res.status(400).json({ error: "userId, accountNumber, and id required" });
+    return res.status(400).json({ message: "userId, accountNumber, and id required" });
+  }
+
+  if (stopLoss !== undefined && !isValidNumber(stopLoss)) {
+    return res.status(400).json({ message: "stopLoss must be a valid number" });
+  }
+  if (takeProfit !== undefined && !isValidNumber(takeProfit)) {
+    return res.status(400).json({ message: "takeProfit must be a valid number" });
+  }
+  if (removalPrice !== undefined && !isValidNumber(removalPrice)) {
+    return res.status(400).json({ message: "removalPrice must be a valid number" });
   }
 
   try {
@@ -66,7 +102,7 @@ const updatePending = async (req, res) => {
     });
 
     if (!Account) {
-      return res.status(403).json({ error: "Invalid account number for this user" });
+      return res.status(403).json({ message: "Invalid account number for this user" });
     }
 
     const namespace = `bot:${userId}:${accountNumber}:`;
@@ -74,7 +110,7 @@ const updatePending = async (req, res) => {
 
     const existingData = await client.hGetAll(key);
     if (Object.keys(existingData).length === 0) {
-      return res.status(404).json({ error: "Order not found" });
+      return res.status(404).json({ message: "Order not found" });
     }
 
     // Parse values if stored as JSON strings
@@ -94,7 +130,7 @@ const updatePending = async (req, res) => {
     }
 
     if (Object.keys(updates).length === 0) {
-      return res.json({ success: true, message: "No changes detected, nothing updated" });
+      return res.status(200).json({ status: 201, message: "No changes detected, nothing updated", success: true });
     }
 
     // Perform selective updates
@@ -104,14 +140,16 @@ const updatePending = async (req, res) => {
     }
     await multi.exec();
 
-    res.json({
+    res.status(200).json({
+      status: 201,
+      message: 'Pending order updated successfully',
       success: true,
       updatedFields: Object.keys(updates),
       updates,
     });
   } catch (err) {
     console.error("Update pending error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -119,88 +157,119 @@ const updatePending = async (req, res) => {
 const addSpotToPending = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, entry_price, stoploss, take_profit, risk_percentage } = req.body;
     const parentId = req.params.parentId;
     if (!userId || !accountNumber || !parentId || entry_price === undefined || stoploss === undefined || risk_percentage === undefined) {
-        return res.status(400).json({ error: 'userId, accountNumber, parentId, entry_price, stoploss, risk_percentage required' });
+        return res.status(400).json({ message: 'userId, accountNumber, parentId, entry_price, stoploss, risk_percentage required' });
+    }
+    if (!isValidNumber(entry_price)) {
+        return res.status(400).json({ message: 'entry_price must be a valid number' });
+    }
+    if (!isValidNumber(stoploss)) {
+        return res.status(400).json({ message: 'stoploss must be a valid number' });
+    }
+    if (!isValidNumber(take_profit)) {
+        return res.status(400).json({ message: 'take_profit must be a valid number' });
+    }
+    if (!isValidNumber(risk_percentage, 0, 100)) {
+        return res.status(400).json({ message: 'risk_percentage must be a valid number between 0 and 100' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}order:${parentId}`;
         const data = await client.hGetAll(key);
         if (Object.keys(data).length === 0) {
-            return res.status(404).json({ error: 'Pending order not found' });
+            return res.status(404).json({ message: 'Pending order not found' });
         }
         const order = parseRedisHash(data);
         if (!order.spot_adds) order.spot_adds = [];
         order.spot_adds.push({ entry_price, stoploss, take_profit, risk_percentage, order_id: null });
         await client.hSet(key, 'spot_adds', JSON.stringify(order.spot_adds));
-        res.json({ success: true, spotIndex: order.spot_adds.length - 1 });
+        res.status(200).json({ status: 201, message: 'Spot add added to pending order successfully', success: true, spotIndex: order.spot_adds.length - 1 });
     } catch (err) {
         console.error('Add spot to pending error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const updateSpotInPending = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
-    const { accountNumber } = req.body;
+    const { accountNumber, entry_price, stoploss, take_profit, risk_percentage } = req.body;
     const { parentId, index } = req.params;
-    const spotData = req.body;
     const idx = parseInt(index);
     if (!userId || !accountNumber || !parentId || isNaN(idx)) {
-        return res.status(400).json({ error: 'userId, accountNumber, parentId, valid index required' });
+        return res.status(400).json({ message: 'userId, accountNumber, parentId, valid index required' });
+    }
+    if (entry_price !== undefined && !isValidNumber(entry_price)) {
+        return res.status(400).json({ message: 'entry_price must be a valid number' });
+    }
+    if (stoploss !== undefined && !isValidNumber(stoploss)) {
+        return res.status(400).json({ message: 'stoploss must be a valid number' });
+    }
+    if (take_profit !== undefined && !isValidNumber(take_profit)) {
+        return res.status(400).json({ message: 'take_profit must be a valid number' });
+    }
+    if (risk_percentage !== undefined && !isValidNumber(risk_percentage, 0, 100)) {
+        return res.status(400).json({ message: 'risk_percentage must be a valid number between 0 and 100' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}order:${parentId}`;
         const data = await client.hGetAll(key);
         if (Object.keys(data).length === 0) {
-            return res.status(404).json({ error: 'Pending order not found' });
+            return res.status(404).json({ message: 'Pending order not found' });
         }
         const order = parseRedisHash(data);
         if (!order.spot_adds || idx >= order.spot_adds.length) {
-            return res.status(404).json({ error: 'Spot add not found' });
+            return res.status(404).json({ message: 'Spot add not found' });
         }
-        order.spot_adds[idx] = { ...spotData, order_id: order.spot_adds[idx]?.order_id || null };
+        order.spot_adds[idx] = { ...req.body, order_id: order.spot_adds[idx]?.order_id || null };
         await client.hSet(key, 'spot_adds', JSON.stringify(order.spot_adds));
-        res.json({ success: true });
+        res.status(200).json({ status: 201, message: 'Spot add in pending order updated successfully', success: true });
     } catch (err) {
         console.error('Update spot in pending error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const addRunning = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, id, ...tradeData } = req.body;
-    if (!userId || !accountNumber || !id) return res.status(400).json({ error: 'userId, accountNumber, id required' });
+    if (!userId || !accountNumber || !id) return res.status(400).json({ message: 'userId, accountNumber, id required' });
+
+    if (!validateOrderType(tradeData.order_type)) {
+        return res.status(400).json({ message: 'order_type must be "limit" or "stop" (case-insensitive)' });
+    }
+    if (!validateTradeSetup(tradeData.trade_setup)) {
+        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" (case-insensitive)' });
+    }
+
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${id}`;
@@ -210,80 +279,80 @@ const addRunning = async (req, res) => {
         }
         multi.sAdd(`${namespace}running_trades_ids`, id);
         await multi.exec();
-        res.json({ success: true, id });
+        res.status(200).json({ status: 201, message: 'Running trade added successfully', success: true, id });
     } catch (err) {
         console.error('Add running error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const updateSlTpBreakeven = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, slToUpdate, tpToUpdate, breakevenPrice } = req.body;
     const id = req.params.id;
     if (!userId || !accountNumber || !id) {
-        return res.status(400).json({ error: 'userId, accountNumber, id required' });
+        return res.status(400).json({ message: 'userId, accountNumber, id required' });
+    }
+    if (slToUpdate !== undefined && !isValidNumber(slToUpdate)) {
+        return res.status(400).json({ message: 'slToUpdate must be a valid number' });
+    }
+    if (tpToUpdate !== undefined && !isValidNumber(tpToUpdate)) {
+        return res.status(400).json({ message: 'tpToUpdate must be a valid number' });
+    }
+    if (breakevenPrice !== undefined && !isValidNumber(breakevenPrice)) {
+        return res.status(400).json({ message: 'breakevenPrice must be a valid number' });
     }
     const updates = {};
-    if (slToUpdate !== undefined && typeof slToUpdate !== 'number') {
-        return res.status(400).json({ error: 'slToUpdate must be number' });
-    }
-    if (tpToUpdate !== undefined && typeof tpToUpdate !== 'number') {
-        return res.status(400).json({ error: 'tpToUpdate must be number' });
-    }
-    if (breakevenPrice !== undefined && typeof breakevenPrice !== 'number') {
-        return res.status(400).json({ error: 'breakevenPrice must be number' });
-    }
     if (slToUpdate !== undefined) updates.slToUpdate = slToUpdate;
     if (tpToUpdate !== undefined) updates.tpToUpdate = tpToUpdate;
     if (breakevenPrice !== undefined) updates.breakevenPrice = breakevenPrice;
     if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: 'No updates provided' });
+        return res.status(400).json({ message: 'No updates provided' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${id}`;
         const existingData = await client.hGetAll(key);
         if (Object.keys(existingData).length === 0) {
-            return res.status(404).json({ error: 'Running trade not found' });
+            return res.status(404).json({ message: 'Running trade not found' });
         }
         const multi = client.multi();
         for (const [k, v] of Object.entries(updates)) {
             multi.hSet(key, k, JSON.stringify(v));
         }
         await multi.exec();
-        res.json({ success: true });
+        res.status(200).json({ status: 201, message: 'SL/TP/Breakeven updated successfully', success: true });
     } catch (err) {
         console.error('Update SL/TP/BE error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const updatePartialClose = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, partialClosePrice, lotToClose } = req.body;
     const id = req.params.id;
     if (!userId || !accountNumber || !id) {
-        return res.status(400).json({ error: 'userId, accountNumber, id required' });
+        return res.status(400).json({ message: 'userId, accountNumber, id required' });
     }
-    if (partialClosePrice !== undefined && typeof partialClosePrice !== 'number') {
-        return res.status(400).json({ error: 'partialClosePrice must be number' });
+    if (partialClosePrice !== undefined && !isValidNumber(partialClosePrice)) {
+        return res.status(400).json({ message: 'partialClosePrice must be a valid number' });
     }
     if (lotToClose !== undefined) {
-        if (typeof lotToClose !== 'number' || lotToClose <= 0) {
-            return res.status(400).json({ error: 'lotToClose must be positive number' });
+        if (!isValidNumber(lotToClose, 0.01)) {
+            return res.status(400).json({ message: 'lotToClose must be a positive number (min 0.01)' });
         }
         // Validate <= volume
         try {
@@ -291,28 +360,28 @@ const updatePartialClose = async (req, res) => {
             const key = `${namespace}running_trade:${id}`;
             const data = await client.hGetAll(key);
             if (Object.keys(data).length === 0) {
-                return res.status(404).json({ error: 'Running trade not found' });
+                return res.status(404).json({ message: 'Running trade not found' });
             }
             const trade = parseRedisHash(data);
             if (lotToClose > trade.volume) {
-                return res.status(400).json({ error: 'lotToClose exceeds trade volume' });
+                return res.status(400).json({ message: 'lotToClose exceeds trade volume' });
             }
         } catch (e) {
-            return res.status(500).json({ error: 'Validation error' });
+            return res.status(500).json({ message: 'Validation error' });
         }
     }
     const updates = {};
     if (partialClosePrice !== undefined) updates.partialClosePrice = partialClosePrice;
     if (lotToClose !== undefined) updates.lotToClose = lotToClose;
     if (Object.keys(updates).length === 0) {
-        return res.status(400).json({ error: 'No updates provided' });
+        return res.status(400).json({ message: 'No updates provided' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${id}`;
@@ -321,142 +390,172 @@ const updatePartialClose = async (req, res) => {
             multi.hSet(key, k, JSON.stringify(v));
         }
         await multi.exec();
-        res.json({ success: true });
+        res.status(200).json({ status: 201, message: 'Partial close updated successfully', success: true });
     } catch (err) {
         console.error('Update partial close error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const setVolumeToClose = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, volumeToClose } = req.body;
     const id = req.params.id;
-    if (!userId || !accountNumber || !id || typeof volumeToClose !== 'number' || volumeToClose < 0) {
-        return res.status(400).json({ error: 'userId, accountNumber, id, non-negative volumeToClose required' });
+    if (!userId || !accountNumber || !id || volumeToClose === undefined) {
+        return res.status(400).json({ message: 'userId, accountNumber, id, volumeToClose required' });
+    }
+    if (!isValidNumber(volumeToClose, 0)) {
+        return res.status(400).json({ message: 'volumeToClose must be a non-negative number' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${id}`;
         const data = await client.hGetAll(key);
         if (Object.keys(data).length === 0) {
-            return res.status(404).json({ error: 'Running trade not found' });
+            return res.status(404).json({ message: 'Running trade not found' });
         }
         const trade = parseRedisHash(data);
         if (volumeToClose > trade.volume) {
-            return res.status(400).json({ error: 'volumeToClose exceeds trade volume' });
+            return res.status(400).json({ message: 'volumeToClose exceeds trade volume' });
         }
         await client.hSet(key, 'volumeToClose', JSON.stringify(volumeToClose));
-        res.json({ success: true });
+        res.status(200).json({ status: 201, message: 'Volume to close set successfully', success: true });
     } catch (err) {
         console.error('Set volumeToClose error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const addSpotToRunning = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, entry_price, stoploss, take_profit, risk_percentage } = req.body;
     const parentId = req.params.parentId;
     if (!userId || !accountNumber || !parentId || entry_price === undefined || stoploss === undefined || risk_percentage === undefined) {
-        return res.status(400).json({ error: 'userId, accountNumber, parentId, entry_price, stoploss, risk_percentage required' });
+        return res.status(400).json({ message: 'userId, accountNumber, parentId, entry_price, stoploss, risk_percentage required' });
+    }
+    if (!isValidNumber(entry_price)) {
+        return res.status(400).json({ message: 'entry_price must be a valid number' });
+    }
+    if (!isValidNumber(stoploss)) {
+        return res.status(400).json({ message: 'stoploss must be a valid number' });
+    }
+    if (!isValidNumber(take_profit)) {
+        return res.status(400).json({ message: 'take_profit must be a valid number' });
+    }
+    if (!isValidNumber(risk_percentage, 0, 100)) {
+        return res.status(400).json({ message: 'risk_percentage must be a valid number between 0 and 100' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${parentId}`;
         const data = await client.hGetAll(key);
         if (Object.keys(data).length === 0) {
-            return res.status(404).json({ error: 'Running trade not found' });
+            return res.status(404).json({ message: 'Running trade not found' });
         }
         const trade = parseRedisHash(data);
         if (!trade.spot_adds) trade.spot_adds = [];
         trade.spot_adds.push({ entry_price, stoploss, take_profit, risk_percentage, order_id: null });
         await client.hSet(key, 'spot_adds', JSON.stringify(trade.spot_adds));
-        res.json({ success: true, spotIndex: trade.spot_adds.length - 1 });
+        res.status(200).json({ status: 201, message: 'Spot add added to running trade successfully', success: true, spotIndex: trade.spot_adds.length - 1 });
     } catch (err) {
         console.error('Add spot to running error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const updateSpotInRunning = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
-    const { accountNumber } = req.body;
+    const { accountNumber, entry_price, stoploss, take_profit, risk_percentage } = req.body;
     const { parentId, index } = req.params;
-    const spotData = req.body;
     const idx = parseInt(index);
     if (!userId || !accountNumber || !parentId || isNaN(idx)) {
-        return res.status(400).json({ error: 'userId, accountNumber, parentId, valid index required' });
+        return res.status(400).json({ message: 'userId, accountNumber, parentId, valid index required' });
+    }
+    if (entry_price !== undefined && !isValidNumber(entry_price)) {
+        return res.status(400).json({ message: 'entry_price must be a valid number' });
+    }
+    if (stoploss !== undefined && !isValidNumber(stoploss)) {
+        return res.status(400).json({ message: 'stoploss must be a valid number' });
+    }
+    if (take_profit !== undefined && !isValidNumber(take_profit)) {
+        return res.status(400).json({ message: 'take_profit must be a valid number' });
+    }
+    if (risk_percentage !== undefined && !isValidNumber(risk_percentage, 0, 100)) {
+        return res.status(400).json({ message: 'risk_percentage must be a valid number between 0 and 100' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         const key = `${namespace}running_trade:${parentId}`;
         const data = await client.hGetAll(key);
         if (Object.keys(data).length === 0) {
-            return res.status(404).json({ error: 'Running trade not found' });
+            return res.status(404).json({ message: 'Running trade not found' });
         }
         const trade = parseRedisHash(data);
         if (!trade.spot_adds || idx >= trade.spot_adds.length) {
-            return res.status(404).json({ error: 'Spot add not found' });
+            return res.status(404).json({ message: 'Spot add not found' });
         }
-        trade.spot_adds[idx] = { ...spotData, order_id: trade.spot_adds[idx]?.order_id || null };
+        trade.spot_adds[idx] = { ...req.body, order_id: trade.spot_adds[idx]?.order_id || null };
         await client.hSet(key, 'spot_adds', JSON.stringify(trade.spot_adds));
-        res.json({ success: true });
+        res.status(200).json({ status: 201, message: 'Spot add in running trade updated successfully', success: true });
     } catch (err) {
         console.error('Update spot in running error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
 const queueDelete = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ error: 'Redis not ready' });
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
     const { accountNumber, orderTicket } = req.body;
     if (!userId || !accountNumber || !orderTicket) {
-        return res.status(400).json({ error: 'userId, accountNumber, orderTicket required' });
+        return res.status(400).json({ message: 'userId, accountNumber, orderTicket required' });
+    }
+    const ticketNum = parseInt(orderTicket);
+    if (isNaN(ticketNum)) {
+        return res.status(400).json({ message: 'orderTicket must be a valid integer' });
     }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
         });
         if (!Account) {
-            return res.status(403).json({ error: 'Invalid account number for this user' });
+            return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
         await client.sAdd(`${namespace}orders_to_delete`, orderTicket.toString());
-        res.json({ success: true, orderTicket });
+        res.status(200).json({ status: 201, message: 'Order queued for deletion successfully', success: true, orderTicket });
     } catch (err) {
         console.error('Queue delete error:', err);
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: err.message });
     }
 };
 
