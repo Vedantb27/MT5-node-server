@@ -41,10 +41,10 @@ const addPending = async (req, res) => {
     if (!userId || !accountNumber || !id) return res.status(400).json({ message: 'userId, accountNumber, id required' });
 
     if (!validateOrderType(orderData.order_type)) {
-        return res.status(400).json({ message: 'order_type must be "limit" or "stop" (case-insensitive)' });
+        return res.status(400).json({ message: 'order_type must be "limit" or "stop" ' });
     }
     if (!validateTradeSetup(orderData.trade_setup)) {
-        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" (case-insensitive)' });
+        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" ' });
     }
 
     try {
@@ -73,84 +73,84 @@ const addPending = async (req, res) => {
 };
 
 const updatePending = async (req, res) => {
-  const client = req.app.locals.redisClient;
-  const redisReady = req.app.locals.redisReady;
-  if (!redisReady) return res.status(503).json({ message: "Redis not ready" });
+    const client = req.app.locals.redisClient;
+    const redisReady = req.app.locals.redisReady;
+    if (!redisReady) return res.status(503).json({ message: "Redis not ready" });
 
-  const userId = req.user?.id;
-  const { accountNumber, stopLoss, takeProfit, removalPrice } = req.body;
-  const id = req.params.id;
+    const userId = req.user?.id;
+    const { accountNumber, stopLoss, takeProfit, removalPrice } = req.body;
+    const id = req.params.id;
 
-  if (!userId || !accountNumber || !id) {
-    return res.status(400).json({ message: "userId, accountNumber, and id required" });
-  }
-
-  if (stopLoss !== undefined && !isValidNumber(stopLoss)) {
-    return res.status(400).json({ message: "stopLoss must be a valid number" });
-  }
-  if (takeProfit !== undefined && !isValidNumber(takeProfit)) {
-    return res.status(400).json({ message: "takeProfit must be a valid number" });
-  }
-  if (removalPrice !== undefined && !isValidNumber(removalPrice)) {
-    return res.status(400).json({ message: "removalPrice must be a valid number" });
-  }
-
-  try {
-    // Validate account
-    const Account = await Accounts.findOne({
-      where: { userId, accountNumber },
-    });
-
-    if (!Account) {
-      return res.status(403).json({ message: "Invalid account number for this user" });
+    if (!userId || !accountNumber || !id) {
+        return res.status(400).json({ message: "userId, accountNumber, and id required" });
     }
 
-    const namespace = `bot:${userId}:${accountNumber}:`;
-    const key = `${namespace}order:${id}`;
-
-    const existingData = await client.hGetAll(key);
-    if (Object.keys(existingData).length === 0) {
-      return res.status(404).json({ message: "Order not found" });
+    if (stopLoss !== undefined && !isValidNumber(stopLoss)) {
+        return res.status(400).json({ message: "stopLoss must be a valid number" });
+    }
+    if (takeProfit !== undefined && !isValidNumber(takeProfit)) {
+        return res.status(400).json({ message: "takeProfit must be a valid number" });
+    }
+    if (removalPrice !== undefined && !isValidNumber(removalPrice)) {
+        return res.status(400).json({ message: "removalPrice must be a valid number" });
     }
 
-    // Parse values if stored as JSON strings
-    const existingStopLoss = existingData.stopLoss ? JSON.parse(existingData.stopLoss) : null;
-    const existingTakeProfit = existingData.takeProfit ? JSON.parse(existingData.takeProfit) : null;
+    try {
+        // Validate account
+        const Account = await Accounts.findOne({
+            where: { userId, accountNumber },
+        });
 
-    // Determine if updates are needed
-    const updates = {};
-    if (stopLoss  && stopLoss !== existingStopLoss) {
-      updates.slToUpdate = stopLoss;
-    }
-    if (takeProfit  && takeProfit !== existingTakeProfit) {
-      updates.tpToUpdate = takeProfit;
-    }
-    if (removalPrice) {
-      updates.removalPrice = removalPrice;
-    }
+        if (!Account) {
+            return res.status(403).json({ message: "Invalid account number for this user" });
+        }
 
-    if (Object.keys(updates).length === 0) {
-      return res.status(200).json({ status: 201, message: "No changes detected, nothing updated", success: true });
-    }
+        const namespace = `bot:${userId}:${accountNumber}:`;
+        const key = `${namespace}order:${id}`;
 
-    // Perform selective updates
-    const multi = client.multi();
-    for (const [k, v] of Object.entries(updates)) {
-      multi.hSet(key, k, JSON.stringify(v));
-    }
-    await multi.exec();
+        const existingData = await client.hGetAll(key);
+        if (Object.keys(existingData).length === 0) {
+            return res.status(404).json({ message: "Order not found" });
+        }
 
-    res.status(200).json({
-      status: 201,
-      message: 'Pending order updated successfully',
-      success: true,
-      updatedFields: Object.keys(updates),
-      updates,
-    });
-  } catch (err) {
-    console.error("Update pending error:", err);
-    res.status(500).json({ message: err.message });
-  }
+        // Parse values if stored as JSON strings
+        const existingStopLoss = existingData.stopLoss ? JSON.parse(existingData.stopLoss) : null;
+        const existingTakeProfit = existingData.takeProfit ? JSON.parse(existingData.takeProfit) : null;
+
+        // Determine if updates are needed
+        const updates = {};
+        if (stopLoss && stopLoss !== existingStopLoss) {
+            updates.slToUpdate = stopLoss;
+        }
+        if (takeProfit && takeProfit !== existingTakeProfit) {
+            updates.tpToUpdate = takeProfit;
+        }
+        if (removalPrice) {
+            updates.removalPrice = removalPrice;
+        }
+
+        if (Object.keys(updates).length === 0) {
+            return res.status(200).json({ status: 201, message: "No changes detected, nothing updated", success: true });
+        }
+
+        // Perform selective updates
+        const multi = client.multi();
+        for (const [k, v] of Object.entries(updates)) {
+            multi.hSet(key, k, JSON.stringify(v));
+        }
+        await multi.exec();
+
+        res.status(200).json({
+            status: 201,
+            message: 'Pending order updated successfully',
+            success: true,
+            updatedFields: Object.keys(updates),
+            updates,
+        });
+    } catch (err) {
+        console.error("Update pending error:", err);
+        res.status(500).json({ message: err.message });
+    }
 };
 
 
@@ -241,6 +241,7 @@ const updateSpotInPending = async (req, res) => {
             return res.status(404).json({ message: 'Spot add not found' });
         }
         order.spot_adds[idx] = { ...req.body, order_id: order.spot_adds[idx]?.order_id || null };
+        delete spot_adds[idx].accountNumber;
         await client.hSet(key, 'spot_adds', JSON.stringify(order.spot_adds));
         res.status(200).json({ status: 201, message: 'Spot add in pending order updated successfully', success: true });
     } catch (err) {
@@ -258,10 +259,10 @@ const addRunning = async (req, res) => {
     if (!userId || !accountNumber || !id) return res.status(400).json({ message: 'userId, accountNumber, id required' });
 
     if (!validateOrderType(tradeData.order_type)) {
-        return res.status(400).json({ message: 'order_type must be "limit" or "stop" (case-insensitive)' });
+        return res.status(400).json({ message: 'order_type must be "limit" or "stop" ' });
     }
     if (!validateTradeSetup(tradeData.trade_setup)) {
-        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" (case-insensitive)' });
+        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" ' });
     }
 
     try {
@@ -306,9 +307,9 @@ const updateSlTpBreakeven = async (req, res) => {
         return res.status(400).json({ message: 'breakevenPrice must be a valid number' });
     }
     const updates = {};
-    if (slToUpdate !== undefined) updates.slToUpdate = slToUpdate;
-    if (tpToUpdate !== undefined) updates.tpToUpdate = tpToUpdate;
-    if (breakevenPrice !== undefined) updates.breakevenPrice = breakevenPrice;
+    if (slToUpdate ) updates.slToUpdate = slToUpdate;
+    if (tpToUpdate ) updates.tpToUpdate = tpToUpdate;
+    if (breakevenPrice ) updates.breakevenPrice = breakevenPrice;
     if (Object.keys(updates).length === 0) {
         return res.status(400).json({ message: 'No updates provided' });
     }
@@ -521,7 +522,12 @@ const updateSpotInRunning = async (req, res) => {
         if (!trade.spot_adds || idx >= trade.spot_adds.length) {
             return res.status(404).json({ message: 'Spot add not found' });
         }
+        if (trade?.spot_adds[idx]?.order_id) {
+            return res.status(400).json({ message: 'This spot is already executed and cant be updated' });
+        }
+
         trade.spot_adds[idx] = { ...req.body, order_id: trade.spot_adds[idx]?.order_id || null };
+        delete trade.spot_adds[idx].accountNumber;
         await client.hSet(key, 'spot_adds', JSON.stringify(trade.spot_adds));
         res.status(200).json({ status: 201, message: 'Spot add in running trade updated successfully', success: true });
     } catch (err) {

@@ -11,7 +11,7 @@ router.put('/pending/:parentId/spot/:index', RedisTradeController.updateSpotInPe
 router.post('/add-running', RedisTradeController.addRunning);
 router.put('/running/:id/update-sl-tp-breakeven', RedisTradeController.updateSlTpBreakeven);
 router.put('/running/:id/update-partial-close', RedisTradeController.updatePartialClose);
-router.put('/running/:id/set-volume-to-close', RedisTradeController.setVolumeToClose);
+router.put('/running/:id/set-volume-close', RedisTradeController.setVolumeToClose);
 router.post('/running/:parentId/add-spot', RedisTradeController.addSpotToRunning);
 router.put('/running/:parentId/spot/:index', RedisTradeController.updateSpotInRunning);
 router.post('/queue-delete', RedisTradeController.queueDelete);
