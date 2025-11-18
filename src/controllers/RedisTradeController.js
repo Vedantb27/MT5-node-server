@@ -1,4 +1,3 @@
-// src/controllers/RedisTradeController.js
 const { Accounts } = require('../models/Trades');
 const { getServerTime } = require('../utils/common');
 
@@ -536,6 +535,52 @@ const updateSpotInRunning = async (req, res) => {
     }
 };
 
+
+const queueSpotDelete = async (req, res) => {
+    const client = req.app.locals.redisClient;
+    const redisReady = req.app.locals.redisReady;
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
+    const userId = req.user?.id;
+    const { accountNumber, tradeId, spotIndex } = req.body;
+    if (!userId || !accountNumber || !tradeId || spotIndex === undefined) {
+        return res.status(400).json({ message: 'userId, accountNumber, tradeId, spotIndex required' });
+    }
+    const indexNum = parseInt(spotIndex);
+    if (isNaN(indexNum) || indexNum < 0) {
+        return res.status(400).json({ message: 'spotIndex must be a non-negative integer' });
+    }
+    try {
+        const Account = await Accounts.findOne({
+            where: { userId, accountNumber }
+        });
+        if (!Account) {
+            return res.status(403).json({ message: 'Invalid account number for this user' });
+        }
+        const namespace = `bot:${userId}:${accountNumber}:`;
+        const spotEntry = `${tradeId}:${spotIndex}`;
+        // Validate spot exists and has no order_id
+        const isRunning = await client.sIsMember(`${namespace}running_trades_ids`, tradeId);
+        const key = isRunning ? `${namespace}running_trade:${tradeId}` : `${namespace}order:${tradeId}`;
+        const data = await client.hGetAll(key);
+        if (Object.keys(data).length === 0) {
+            return res.status(404).json({ message: 'Trade not found' });
+        }
+        const trade = parseRedisHash(data);
+        const spotAdd = trade.spot_adds?.[indexNum];
+        if (!spotAdd) {
+            return res.status(404).json({ message: 'Spot add not found' });
+        }
+        if (spotAdd.order_id !== null && spotAdd.order_id !== undefined) {
+            return res.status(400).json({ message: 'This spot is already executed and cannot be deleted' });
+        }
+        await client.sAdd(`${namespace}spots_to_delete`, spotEntry);
+        res.status(200).json({ status: 201, message: 'Spot queued for deletion successfully', success: true, spotEntry });
+    } catch (err) {
+        console.error('Queue spot delete error:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
 const queueDelete = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
@@ -577,5 +622,6 @@ module.exports = {
     addSpotToRunning,
     updateSpotInRunning,
     queueDelete,
-    parseRedisHash
+    parseRedisHash,
+    queueSpotDelete
 };

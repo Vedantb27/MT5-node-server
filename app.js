@@ -177,10 +177,23 @@ if (cluster.isMaster) {
                         return { symbol, bid, ask, timestamp };
                     })
                 );
+                // Fetch account info
+                const accountKey = `${namespace}account_info`;
+                const accountData = await redisClient.hGetAll(accountKey);
+                let account = null;
+                if (Object.keys(accountData).length > 0) {
+                    account = {
+                        currency: accountData.currency ? JSON.parse(accountData.currency) : null,
+                        balance: accountData.balance ? parseFloat(accountData.balance) : null,
+                        equity: accountData.equity ? parseFloat(accountData.equity) : null,
+                        timestamp: accountData.timestamp ? JSON.parse(accountData.timestamp) : null
+                    };
+                }
                 return {
                     pending,
                     running,
-                    market
+                    market,
+                    account
                 };
             } catch (err) {
                 console.error('Error in fetchRedisData:', err);

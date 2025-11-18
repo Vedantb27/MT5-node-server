@@ -14,5 +14,6 @@ router.put('/running/:id/update-partial-close', RedisTradeController.updateParti
 router.put('/running/:id/set-volume-close', RedisTradeController.setVolumeToClose);
 router.post('/running/:parentId/add-spot', RedisTradeController.addSpotToRunning);
 router.put('/running/:parentId/spot/:index', RedisTradeController.updateSpotInRunning);
+router.post('/queue-spot-delete', RedisTradeController.queueSpotDelete);
 router.post('/queue-delete', RedisTradeController.queueDelete);
 module.exports = router;
