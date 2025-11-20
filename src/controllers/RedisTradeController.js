@@ -249,21 +249,32 @@ const updateSpotInPending = async (req, res) => {
     }
 };
 
-const addRunning = async (req, res) => {
+
+
+const addRunningOrderToAdd = async (req, res) => {
     const client = req.app.locals.redisClient;
     const redisReady = req.app.locals.redisReady;
     if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
     const userId = req.user?.id;
-    const { accountNumber, id, ...tradeData } = req.body;
-    if (!userId || !accountNumber || !id) return res.status(400).json({ message: 'userId, accountNumber, id required' });
-
-    if (!validateOrderType(tradeData.order_type)) {
-        return res.status(400).json({ message: 'order_type must be "limit" or "stop" ' });
+    const { accountNumber, id, symbol, trade_setup, stopLoss, risk_percentage, takeProfit } = req.body;
+    if (!userId || !accountNumber || !id || !symbol || !trade_setup || stopLoss === undefined || risk_percentage === undefined) {
+        return res.status(400).json({ message: 'userId, accountNumber, id, symbol, trade_setup, stopLoss, risk_percentage required' });
     }
-    if (!validateTradeSetup(tradeData.trade_setup)) {
-        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell" ' });
+    if (typeof symbol !== 'string' || symbol.trim() === '') {
+        return res.status(400).json({ message: 'symbol must be a non-empty string' });
     }
-
+    if (!validateTradeSetup(trade_setup)) {
+        return res.status(400).json({ message: 'trade_setup must be "buy" or "sell"' });
+    }
+    if (!isValidNumber(stopLoss)) {
+        return res.status(400).json({ message: 'stopLoss must be a valid number' });
+    }
+    if (!isValidNumber(risk_percentage, 0, 100)) {
+        return res.status(400).json({ message: 'risk_percentage must be a valid number between 0 and 100' });
+    }
+    if (takeProfit !== undefined && !isValidNumber(takeProfit)) {
+        return res.status(400).json({ message: 'takeProfit must be a valid number' });
+    }
     try {
         const Account = await Accounts.findOne({
             where: { userId, accountNumber }
@@ -272,16 +283,20 @@ const addRunning = async (req, res) => {
             return res.status(403).json({ message: 'Invalid account number for this user' });
         }
         const namespace = `bot:${userId}:${accountNumber}:`;
-        const key = `${namespace}running_trade:${id}`;
+        const key = `${namespace}running_order_to_add:${id}`;
+        const orderData = { symbol, trade_setup, stopLoss, risk_percentage };
+        if (takeProfit !== undefined) {
+            orderData.takeProfit = takeProfit;
+        }
         const multi = client.multi();
-        for (const [k, v] of Object.entries(tradeData)) {
+        for (const [k, v] of Object.entries(orderData)) {
             multi.hSet(key, k, JSON.stringify(v));
         }
-        multi.sAdd(`${namespace}running_trades_ids`, id);
+        multi.sAdd(`${namespace}running_orders_to_add_ids`, id);
         await multi.exec();
-        res.status(200).json({ status: 201, message: 'Running trade added successfully', success: true, id });
+        res.status(200).json({ status: 201, message: 'Market order added successfully', success: true, id });
     } catch (err) {
-        console.error('Add running error:', err);
+        console.error('Add running order to add error:', err);
         res.status(500).json({ message: err.message });
     }
 };
@@ -615,7 +630,7 @@ module.exports = {
     updatePending,
     addSpotToPending,
     updateSpotInPending,
-    addRunning,
+    addRunningOrderToAdd,
     updateSlTpBreakeven,
     updatePartialClose,
     setVolumeToClose,

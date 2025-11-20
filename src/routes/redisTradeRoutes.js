@@ -8,7 +8,7 @@ router.post('/add-pending', RedisTradeController.addPending);
 router.put('/update-pending/:id', RedisTradeController.updatePending);
 router.post('/pending/:parentId/add-spot', RedisTradeController.addSpotToPending);
 router.put('/pending/:parentId/spot/:index', RedisTradeController.updateSpotInPending);
-router.post('/add-running', RedisTradeController.addRunning);
+router.post('/add-running', RedisTradeController.addRunningOrderToAdd);
 router.put('/running/:id/update-sl-tp-breakeven', RedisTradeController.updateSlTpBreakeven);
 router.put('/running/:id/update-partial-close', RedisTradeController.updatePartialClose);
 router.put('/running/:id/set-volume-close', RedisTradeController.setVolumeToClose);
