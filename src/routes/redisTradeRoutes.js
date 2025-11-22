@@ -16,4 +16,6 @@ router.post('/running/:parentId/add-spot', RedisTradeController.addSpotToRunning
 router.put('/running/:parentId/spot/:index', RedisTradeController.updateSpotInRunning);
 router.post('/queue-spot-delete', RedisTradeController.queueSpotDelete);
 router.post('/queue-delete', RedisTradeController.queueDelete);
+router.get('/get-executed-order', RedisTradeController.getExecutedTrades);
+router.get('/get-removed-order', RedisTradeController.getRemovedOrders);
 module.exports = router;

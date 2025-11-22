@@ -625,6 +625,122 @@ const queueDelete = async (req, res) => {
     }
 };
 
+const getExecutedTrades = async (req, res) => {
+    const client = req.app.locals.redisClient;
+    const redisReady = req.app.locals.redisReady;
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
+    const userId = req.user?.id;
+    const { accountNumber } = req.query;
+    if (!userId || !accountNumber) {
+        return res.status(400).json({ message: 'userId and accountNumber required' });
+    }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    if (page < 1 || limit < 1 || limit > 100) {
+        return res.status(400).json({ message: 'page must be >=1, limit must be 1-100' });
+    }
+    try {
+        const Account = await Accounts.findOne({
+            where: { userId, accountNumber }
+        });
+        if (!Account) {
+            return res.status(403).json({ message: 'Invalid account number for this user' });
+        }
+        const namespace = `bot:${userId}:${accountNumber}:`;
+        const key = `${namespace}executed_orders`;
+        const total = await client.lLen(key);
+        const start = (page - 1) * limit;
+        const end = start + limit - 1;
+        const rawTrades = await client.lRange(key, start, end);
+        const trades = rawTrades.map(item => {
+            try {
+                return JSON.parse(item);
+            } catch {
+                return null;
+            }
+        }).filter(trade => trade !== null);
+        const totalPages = Math.ceil(total / limit);
+        res.status(200).json({
+            status: 200,
+            message: 'Executed trades fetched successfully',
+            success: true,
+            trades,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
+        });
+    } catch (err) {
+        console.error('Get executed trades error:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
+const getRemovedOrders = async (req, res) => {
+    const client = req.app.locals.redisClient;
+    const redisReady = req.app.locals.redisReady;
+    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
+    const userId = req.user?.id;
+    const { accountNumber } = req.query;
+    if (!userId || !accountNumber) {
+        return res.status(400).json({ message: 'userId and accountNumber required' });
+    }
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    if (page < 1 || limit < 1 || limit > 100) {
+        return res.status(400).json({ message: 'page must be >=1, limit must be 1-100' });
+    }
+    try {
+        const Account = await Accounts.findOne({
+            where: { userId, accountNumber }
+        });
+        if (!Account) {
+            return res.status(403).json({ message: 'Invalid account number for this user' });
+        }
+        const namespace = `bot:${userId}:${accountNumber}:`;
+        const idsKey = `${namespace}removed_orders_ids`;
+        const allIds = await client.sMembers(idsKey);
+        const total = allIds.length;
+        const sortedIds = allIds
+            .map(id => ({ id, num: parseInt(id) }))
+            .sort((a, b) => b.num - a.num) // Descending by numeric ID
+            .map(item => item.id);
+        const start = (page - 1) * limit;
+        const end = Math.min(start + limit - 1, sortedIds.length - 1);
+        const paginatedIds = sortedIds.slice(start, end + 1);
+        const orders = [];
+        for (const id of paginatedIds) {
+            const key = `${namespace}removed_order:${id}`;
+            const data = await client.hGetAll(key);
+            if (Object.keys(data).length > 0) {
+                orders.push(parseRedisHash(data));
+            }
+        }
+        const totalPages = Math.ceil(total / limit);
+        res.status(200).json({
+            status: 200,
+            message: 'Removed orders fetched successfully',
+            success: true,
+            orders,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: totalPages,
+                hasNext: page < totalPages,
+                hasPrev: page > 1
+            }
+        });
+    } catch (err) {
+        console.error('Get removed orders error:', err);
+        res.status(500).json({ message: err.message });
+    }
+};
+
 module.exports = {
     addPending,
     updatePending,
@@ -638,5 +754,7 @@ module.exports = {
     updateSpotInRunning,
     queueDelete,
     parseRedisHash,
-    queueSpotDelete
+    queueSpotDelete,
+    getExecutedTrades,
+    getRemovedOrders
 };
