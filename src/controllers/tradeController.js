@@ -81,11 +81,16 @@ const getTradeHistory = async (req, res) => {
       timestamps: false,
     });
 
-    const trades = await DynamicTrades.findAll({
-      where: {
-        accountNumber: accountNumber,
-      },
-    });
+ const trades = await DynamicTrades.findAll({
+  where: {
+    accountNumber: accountNumber,
+  },
+  order: [
+    ['close_date', 'DESC'],
+    ['close_time', 'DESC']
+  ]
+});
+
 
     return res.status(200).json(trades);
   } catch (err) {

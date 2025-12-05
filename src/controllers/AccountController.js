@@ -121,7 +121,7 @@ console.log(loginResponse,"loginResponse")
         }
 
         // Fetch MT5 history using fetchTrades
-        const start_date = '1970-01-01';
+        const start_date = '2000-01-01';
         const end_date = new Date().toISOString().split('T')[0];
         const mockReq = { body: { start_date, end_date } };
         let mockRes = {
