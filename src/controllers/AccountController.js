@@ -57,7 +57,7 @@ const addAccount = async (req, res) => {
       if (existingAccount) {
         return res.status(400).json({ message: 'Account number already exists for this user' });
       }
-console.log(loginResponse,"loginResponse")
+      console.log(loginResponse, "loginResponse")
       // Create new account (for MT5)
       const newAccount = await Accounts.create({
         userId,
@@ -122,7 +122,10 @@ console.log(loginResponse,"loginResponse")
 
         // Fetch MT5 history using fetchTrades
         const start_date = '2000-01-01';
-        const end_date = new Date().toISOString().split('T')[0];
+        const end_date_raw = new Date();
+        end_date_raw.setDate(end_date_raw.getDate() + 2);
+
+        const end_date = end_date_raw.toISOString().split('T')[0];
         const mockReq = { body: { start_date, end_date } };
         let mockRes = {
           _status: null,
