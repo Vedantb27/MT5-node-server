@@ -626,59 +626,77 @@ const queueDelete = async (req, res) => {
 };
 
 const getExecutedTrades = async (req, res) => {
-    const client = req.app.locals.redisClient;
-    const redisReady = req.app.locals.redisReady;
-    if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
-    const userId = req.user?.id;
-    const { accountNumber } = req.query;
-    if (!userId || !accountNumber) {
-        return res.status(400).json({ message: 'userId and accountNumber required' });
+  const client = req.app.locals.redisClient;
+  const redisReady = req.app.locals.redisReady;
+  if (!redisReady) return res.status(503).json({ message: 'Redis not ready' });
+
+  const userId = req.user?.id;
+  const { accountNumber } = req.query;
+  if (!userId || !accountNumber) {
+    return res.status(400).json({ message: 'userId and accountNumber required' });
+  }
+
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+
+  try {
+    const Account = await Accounts.findOne({ where: { userId, accountNumber } });
+    if (!Account) {
+      return res.status(403).json({ message: 'Invalid account number for this user' });
     }
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    if (page < 1 || limit < 1 || limit > 100) {
-        return res.status(400).json({ message: 'page must be >=1, limit must be 1-100' });
-    }
-    try {
-        const Account = await Accounts.findOne({
-            where: { userId, accountNumber }
-        });
-        if (!Account) {
-            return res.status(403).json({ message: 'Invalid account number for this user' });
-        }
-        const namespace = `bot:${userId}:${accountNumber}:`;
-        const key = `${namespace}executed_orders`;
-        const total = await client.lLen(key);
-        const start = (page - 1) * limit;
-        const end = start + limit - 1;
-        const rawTrades = await client.lRange(key, start, end);
-        const trades = rawTrades.map(item => {
-            try {
-                return JSON.parse(item);
-            } catch {
-                return null;
-            }
-        }).filter(trade => trade !== null);
-        const totalPages = Math.ceil(total / limit);
-        res.status(200).json({
-            status: 200,
-            message: 'Executed trades fetched successfully',
-            success: true,
-            trades,
-            pagination: {
-                page,
-                limit,
-                total,
-                pages: totalPages,
-                hasNext: page < totalPages,
-                hasPrev: page > 1
-            }
-        });
-    } catch (err) {
-        console.error('Get executed trades error:', err);
-        res.status(500).json({ message: err.message });
-    }
+
+    const namespace = `bot:${userId}:${accountNumber}:`;
+    const key = `${namespace}executed_orders`;
+
+    // fetch entire list (quick fix). If list is huge, see scalable option below.
+    const rawAll = await client.lRange(key, 0, -1); // returns array of strings
+
+    // parse JSON, ignore invalid items
+    const allTrades = rawAll.map(item => {
+      try {
+        return JSON.parse(item);
+      } catch (e) {
+        return null;
+      }
+    }).filter(Boolean);
+
+    // helper to get epoch ms for sorting; fall back to execution_time or 0 if missing
+    const epochFor = (t) => {
+      const ct = t?.closing_time || t?.execution_time;
+      const n = Date.parse(ct);
+      return Number.isNaN(n) ? 0 : n;
+    };
+
+    // sort by closing_time desc (newest first)
+    allTrades.sort((a, b) => epochFor(b) - epochFor(a));
+
+    const total = allTrades.length;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    // compute slice for pagination
+    const startIndex = (page - 1) * limit;
+    const pagedTrades = allTrades.slice(startIndex, startIndex + limit);
+
+    res.status(200).json({
+      status: 200,
+      message: 'Executed trades fetched successfully',
+      success: true,
+      trades: pagedTrades,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    });
+  } catch (err) {
+    console.error('Get executed trades error:', err);
+    res.status(500).json({ message: err.message });
+  }
 };
+
 
 const getRemovedOrders = async (req, res) => {
     const client = req.app.locals.redisClient;

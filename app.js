@@ -212,8 +212,8 @@ if (cluster.isMaster) {
             } else if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch data' }));
             }
-        }, 50); // Poll every 50ms; tune based on load (e.g., 100ms for less aggressive)
-        // Send initial connection message
+        }, 420); 
+       
         ws.send(JSON.stringify({ type: 'connected', message: 'Connected to trading data stream', userId: user.id, accountNumber }));
         ws.on('close', () => {
             clearInterval(interval);
