@@ -47,7 +47,11 @@ if (cluster.isMaster) {
     }
     // Redis client setup (per worker) - Use createClient for v4
     const redisClient = createClient({
-        url: `redis://${process.env.REDIS_HOST || '127.0.0.1'}:${process.env.REDIS_PORT || 6379}`
+        socket: {
+            host: process.env.REDIS_HOST || '127.0.0.1',
+            port: process.env.REDIS_PORT || 6379
+        },
+        password: process.env.REDIS_PASSWORD
     });
     let redisReady = false;
     redisClient.on('ready', () => {
@@ -71,7 +75,7 @@ if (cluster.isMaster) {
     // Make redisClient available to routes via app locals
     app.locals.redisClient = redisClient;
     app.locals.redisReady = redisReady;
-  
+
     if (cluster.worker.id === 1) {
         schedule.scheduleJob('0 */2 * * *', async () => {
             try {
