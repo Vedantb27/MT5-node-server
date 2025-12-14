@@ -23,8 +23,10 @@ function getMt5OffsetHours(dateUTC) {
   return (dateUTC >= dstStart && dateUTC < dstEnd) ? 3 : 2;
 }
 
-export function getServerTime() {
+function getServerTime() {
   const utcNow = new Date(); // ALWAYS current UTC internally
   const offset = getMt5OffsetHours(utcNow);
   return new Date(utcNow.getTime() + offset * 60 * 60 * 1000);
 }
+
+module.exports = getServerTime;
