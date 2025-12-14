@@ -212,7 +212,7 @@ if (cluster.isMaster) {
             } else if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'error', message: 'Failed to fetch data' }));
             }
-        }, 420); 
+        }, 425); 
        
         ws.send(JSON.stringify({ type: 'connected', message: 'Connected to trading data stream', userId: user.id, accountNumber }));
         ws.on('close', () => {
