@@ -95,7 +95,7 @@ if (cluster.isMaster) {
     app.use('/api2', historyRoutes.router);
     app.use('/api2', loginRoutes.router);
     app.get('/', (req, res) => {
-        res.send(`Hello from worker check CI-CD ${process.pid}`);
+        res.send(`Hello from worker check CI-CD2 ${process.pid}`);
     });
     // Create HTTP server
     const httpServer = app.listen(PORT, () => {
