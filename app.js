@@ -86,7 +86,7 @@ if (cluster.isMaster) {
                 console.error('Error updating server list via scheduler:', err);
             }
         });
-        console.log('Scheduler for server list initialized in worker 1');
+        console.log('Scheduler for server list initialized in worker  1');
     }
     // Routes
     app.use('/api/auth', authRoutes);
