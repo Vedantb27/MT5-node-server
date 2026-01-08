@@ -23,7 +23,7 @@ pipeline {
         stage('Docker Build') {
             steps {
                 script {
-                    def dockerImage = docker.build("${REGISTRY}:latest")
+                    docker.build("${REGISTRY}:latest")
                 }
             }
         }
@@ -43,7 +43,7 @@ pipeline {
             steps {
                 script {
 
-                    // 1️⃣ Send SSM command and capture CommandId
+                    // 1️⃣ Send SSM command
                     def commandId = sh(
                         script: """
 aws ssm send-command \
@@ -51,31 +51,34 @@ aws ssm send-command \
   --document-name AWS-RunShellScript \
   --targets Key=tag:service,Values=mt5-trade-manager \
   --comment "Restart mt5trademanager containers" \
+  --cloud-watch-output-config '{
+      "CloudWatchLogGroupName": "/ssm/mt5-deployments",
+      "CloudWatchOutputEnabled": true
+  }' \
   --parameters '{
-    "commands":  [
+    "commands": [
+      "echo ===== STOP ALL CONTAINERS =====",
+      "docker ps -aq | xargs -r docker stop",
+      "docker ps -aq | xargs -r docker rm",
 
-    "echo ===== STOP ALL CONTAINERS =====",
-    "docker ps -aq | xargs -r docker stop",
-    "docker ps -aq | xargs -r docker rm",
+      "echo ===== REMOVE ALL IMAGES =====",
+      "docker images -aq | xargs -r docker rmi -f",
 
-    "echo ===== REMOVE ALL IMAGES =====",
-    "docker images -aq | xargs -r docker rmi -f",
+      "echo ===== REMOVE ALL VOLUMES =====",
+      "docker volume ls -q | xargs -r docker volume rm -f",
 
-    "echo ===== REMOVE ALL VOLUMES =====",
-    "docker volume ls -q | xargs -r docker volume rm -f",
+      "echo ===== CLEAN BUILD CACHE =====",
+      "docker builder prune -af",
 
-    "echo ===== CLEAN BUILD CACHE =====",
-    "docker builder prune -af",
+      "echo ===== LOGIN TO ECR =====",
+      "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 125309500142.dkr.ecr.ap-south-1.amazonaws.com",
 
-    "echo ===== LOGIN TO ECR =====",
-    "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 125309500142.dkr.ecr.ap-south-1.amazonaws.com",
+      "echo ===== PULL LATEST IMAGE =====",
+      "docker pull 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest",
 
-    "echo ===== PULL LATEST IMAGE =====",
-    "docker pull 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest",
-
-    "echo ===== RUN FRESH CONTAINER =====",
-    "docker run -d --name mt5trademanager --log-opt max-size=10m --log-opt max-file=3 --env-file /opt/mt5/.env -p 3000:3000 -p 80:5000 --restart unless-stopped 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest"
-  ]
+      "echo ===== RUN FRESH CONTAINER =====",
+      "docker run -d --name mt5trademanager --log-opt max-size=10m --log-opt max-file=3 --env-file /opt/mt5/.env -p 3000:3000 -p 80:5000 --restart unless-stopped 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest"
+    ]
   }' \
   --query "Command.CommandId" \
   --output text
@@ -85,26 +88,41 @@ aws ssm send-command \
 
                     echo "SSM Command ID: ${commandId}"
 
-                    // 2️⃣ Wait for SSM execution
-                    sleep 15
+                    // 2️⃣ Poll SSM status
+                    def status = "InProgress"
+                    def maxRetries = 40   // ~10 minutes
+                    def retryCount = 0
 
-                    // 3️⃣ Check execution status
-                    def status = sh(
-                        script: """
+                    while (status == "InProgress" || status == "Pending") {
+
+                        if (retryCount >= maxRetries) {
+                            error "SSM command timed out"
+                        }
+
+                        sleep 15
+                        retryCount++
+
+                        status = sh(
+                            script: """
 aws ssm list-command-invocations \
   --region ${AWS_REGION} \
   --command-id ${commandId} \
-  --query "CommandInvocations[].Status" \
+  --details \
+  --query "CommandInvocations[0].Status" \
   --output text
 """,
-                        returnStdout: true
-                    ).trim()
+                            returnStdout: true
+                        ).trim()
 
-                    if (!status.contains("Success")) {
-                        error " Deployment failed. SSM status: ${status}"
+                        echo "SSM status: ${status}"
                     }
 
-                    echo "Deployment completed successfully on EC2 instances"
+                    // 3️⃣ Final validation
+                    if (status != "Success") {
+                        error "Deployment failed. Final SSM status: ${status}"
+                    }
+
+                    echo "✅ Deployment completed successfully"
                 }
             }
         }
