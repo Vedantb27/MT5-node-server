@@ -1,0 +1,112 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_REGION = "ap-south-1"
+        REGISTRY   = "125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scmGit(
+                    branches: [[name: '*/main']],
+                    userRemoteConfigs: [[
+                        credentialsId: 'Vedantb27',
+                        url: 'https://github.com/NehalKubade/Trade-Manager-MT5-Python.git'
+                    ]]
+                )
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                script {
+                    def dockerImage = docker.build("${REGISTRY}:latest")
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                sh """
+                aws ecr get-login-password --region ${AWS_REGION} \
+                | docker login --username AWS --password-stdin 125309500142.dkr.ecr.ap-south-1.amazonaws.com
+
+                docker push ${REGISTRY}:latest
+                """
+            }
+        }
+
+        stage('Deploy Latest Container (SSM)') {
+            steps {
+                script {
+
+                    // 1️⃣ Send SSM command and capture CommandId
+                    def commandId = sh(
+                        script: """
+aws ssm send-command \
+  --region ${AWS_REGION} \
+  --document-name AWS-RunShellScript \
+  --targets Key=tag:service,Values=mt5-trade-manager \
+  --comment "Restart mt5trademanager containers" \
+  --parameters '{
+    "commands":  [
+
+    "echo ===== STOP ALL CONTAINERS =====",
+    "docker ps -aq | xargs -r docker stop",
+    "docker ps -aq | xargs -r docker rm",
+
+    "echo ===== REMOVE ALL IMAGES =====",
+    "docker images -aq | xargs -r docker rmi -f",
+
+    "echo ===== REMOVE ALL VOLUMES =====",
+    "docker volume ls -q | xargs -r docker volume rm -f",
+
+    "echo ===== CLEAN BUILD CACHE =====",
+    "docker builder prune -af",
+
+    "echo ===== LOGIN TO ECR =====",
+    "aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 125309500142.dkr.ecr.ap-south-1.amazonaws.com",
+
+    "echo ===== PULL LATEST IMAGE =====",
+    "docker pull 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest",
+
+    "echo ===== RUN FRESH CONTAINER =====",
+    "docker run -d --name mt5trademanager --log-opt max-size=10m --log-opt max-file=3 --env-file /opt/mt5/.env -p 3000:3000 -p 80:5000 --restart unless-stopped 125309500142.dkr.ecr.ap-south-1.amazonaws.com/mt5trademanager:latest"
+  ]
+  }' \
+  --query "Command.CommandId" \
+  --output text
+""",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "SSM Command ID: ${commandId}"
+
+                    // 2️⃣ Wait for SSM execution
+                    sleep 15
+
+                    // 3️⃣ Check execution status
+                    def status = sh(
+                        script: """
+aws ssm list-command-invocations \
+  --region ${AWS_REGION} \
+  --command-id ${commandId} \
+  --query "CommandInvocations[].Status" \
+  --output text
+""",
+                        returnStdout: true
+                    ).trim()
+
+                    if (!status.contains("Success")) {
+                        error " Deployment failed. SSM status: ${status}"
+                    }
+
+                    echo "Deployment completed successfully on EC2 instances"
+                }
+            }
+        }
+    }
+}
