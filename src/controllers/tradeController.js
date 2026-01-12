@@ -49,6 +49,8 @@ const getTradeHistory = async (req, res) => {
       },
     });
 
+    console.log("the value of Account to Test", Account);
+
     if (!Account) {
       return res.status(403).json({ error: 'Invalid Account number for this user' });
     }

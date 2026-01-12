@@ -121,6 +121,21 @@ const Accounts = sequelize.define('Accounts', {
     allowNull: false,
     defaultValue: DataTypes.NOW,
   },
+  isActive:{
+    type:DataTypes.BOOLEAN,
+    allowNull:false,
+    defaultValue:false
+  },
+  creditExpiryTIme:{
+    type:DataTypes.DATE,
+    allowNull:true,
+    commentL:'credit expriration time'
+  },
+  masterAccountID:{
+    type:DataTypes.STRING,
+    allowNull:true,
+    defaultValue:''
+  },
 });
 
 // Define associations
