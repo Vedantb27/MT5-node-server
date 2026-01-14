@@ -3,6 +3,7 @@ require('dotenv').config();
 const sequelize = require('./src/config/database');
 const tradeRoutes = require('./src/routes/tradeRoutes');
 const redisTradeRoutes = require('./src/routes/redisTradeRoutes');
+const copyTradingRoutes = require('./src/routes/copyTradeRoutes');
 const cors = require('cors');
 const authRoutes = require('./src/routes/auth');
 const os = require('os');
@@ -92,6 +93,7 @@ if (cluster.isMaster) {
     app.use('/api/auth', authRoutes);
     app.use('/api', tradeRoutes);
     app.use('/api/trade-manager', redisTradeRoutes);
+    app.use('/api/trade-copier', copyTradingRoutes);
     app.use('/api2', historyRoutes.router);
     app.use('/api2', loginRoutes.router);
     app.get('/', (req, res) => {
