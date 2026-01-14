@@ -171,7 +171,7 @@ const deleteMT5TradeManager = async (userId, loginId) => {
 
 
 
-const createMT5tradeManager = async (req, res) => {
+const createMT5Manager = async (req, res) => {
 
     const data = req.body;
     const userid = data.user?.id;
@@ -192,21 +192,20 @@ const createMT5tradeManager = async (req, res) => {
         where: {
             userId: userid,
             accountNumber: data.accountNumber,
-            accountPassword: data.accountPassword,
-            accountServer: data.accountServer,
         },
+        attributes:['accountPassword','accountServer']
     });
 
     if (accountExists) {
 
         try {
             const userDataScript = generateUserData({
-                userId: accountDetails.userId,
-                loginId: accountDetails.loginId,
-                accountNumber: accountDetails.accountNumber,
-                accountPassword: accountDetails.accountPassword,
-                accountServer: accountDetails.accountServer,
-                redisHost: accountDetails.redisHost,
+                userId: data.userId,
+                loginId: data.loginId,
+                accountNumber: data.accountNumber,
+                accountPassword: accountExists.accountPassword,
+                accountServer: accountExists.accountServer,
+                redisHost: redisHost,
             });
 
             // 1️⃣ Create EC2 from Launch Template
@@ -275,7 +274,7 @@ const createMT5tradeManager = async (req, res) => {
     }
 };
 
-const replaceWithNewMT5TradeManager = async (req, res) => {
+const replaceNewMT5Manager = async (req, res) => {
     const data = req.body;
     const userId = data.user?.id;
     if (userid != req.user.id) {
@@ -294,12 +293,21 @@ const replaceWithNewMT5TradeManager = async (req, res) => {
             userId: userId,
             accountNumber: data.newAccountNumber,
         },
-        attributes: ['password', 'server', 'status'],
+        attributes: ['password', 'server', 'isActive'],
     });
 
-   // to replace master account select all the slave list and copied to the new master accounts redis, also in SQL database replace the old master id and add the new one in all its slave
-   // to replace slave to slave In Database account remove the previos master id and add new master id In redis Database 
-   // 
+    const oldAccountExists = await Accounts.findOne({
+        where: {
+            userId: userId,
+            accountNumber: data.oldAccountNumber,
+        },
+        attributes: ['password', 'server', 'isActive','creditExpiryTIme'],
+    });
+
+    // to replace master account select all the slave list and copied to the new master accounts redis, also in SQL database replace the old master id and add the new one in all its slave
+    // to replace slave to slave In Database account remove the previos master id and add new master id In redis Database 
+    // 
+
     if (newAccountExists) {
         try {
 
@@ -324,10 +332,10 @@ const replaceWithNewMT5TradeManager = async (req, res) => {
             const userDataScript = generateUserData({
                 userId: userId,
                 loginId: data.newAccountNumber,
-                accountNumber: accountDetails.accountNumber,
-                accountPassword: accountDetails.accountPassword,
-                accountServer: accountDetails.accountServer,
-                redisHost: accountDetails.redisHost,
+                accountNumber: newAccountExists.accountNumber,
+                accountPassword: newAccountExists.accountPassword,
+                accountServer: newAccountExists.accountServer,
+                redisHost: oldAccountExists.redisHost,
             });
 
             // 1️⃣ Create EC2 from Launch Template
@@ -364,14 +372,38 @@ const replaceWithNewMT5TradeManager = async (req, res) => {
             expiryDate.setDate(expiryDate.getDate() + 30);
             let masterAccountID = '';
             if ('masterAccountID' in data) {
-                masterAccountID = data.masterAccountID;
+                masterAccountID = masterAccountID;
+
             }
 
-            await Accounts.update({
-                isActive: true,
-                creditExpiryTIme: creditExpiryTIme,
-                masterAccountID: masterAccountID,
-            })
+            
+            await Accounts.update(
+                {
+                    isActive: true,
+                    creditExpiryTIme: oldAccountExists.creditExpiryTIme,
+                    masterAccountID: masterAccountID,
+                },
+                {
+                    where: {
+                        userId: userId,
+                        accountNumber: oldAccountExists.accountNumber,
+                    }
+                }
+            )
+
+            await Accounts.update(
+                {
+                    isActive: false,
+                    creditExpiryTIme: null,
+                    masterAccountID: '',
+                },
+                {
+                    where: {
+                        userId: userId,
+                        accountNumber: newAccountExists.accountNumber,
+                    }
+                }
+            )
 
             return res.json({
                 message: "EC2 instance created successfully",
@@ -395,6 +427,9 @@ const replaceWithNewMT5TradeManager = async (req, res) => {
         // login mt5 account first 
     }
 }
+
+
 module.exports = {
-    createMT5tradeManager,
+    createMT5Manager,
+    replaceNewMT5Manager
 }
